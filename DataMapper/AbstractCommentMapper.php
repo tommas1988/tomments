@@ -364,14 +364,12 @@ abstract class AbstractCommentMapper implements CommentMapperInterface
             }
 
             $node    = $this->listRow[$key];
-            $comment = $this->getComment($key);
+            $comment = $this->getComment($node);
             if (!$node->isChild || $key === $startKey) {
                 $comments[] = $comment;
             } else {
-                $parentKey  = $node->data->getParentKey();
-                $parentNode = $this->getComment($parentKey);
-
-                $parentNode->addChild($comment);
+                $parentComment = $this->getComment($comment->getParentKey());
+                $parentComment->addChild($comment);
             }
 
             $key = $node->next;
@@ -383,18 +381,21 @@ abstract class AbstractCommentMapper implements CommentMapperInterface
     /**
      * Get a comment object from comment row list
      *
-     * @param  int key The key of comment
+     * @param  int|stdClass keyOrNode The key or node of comment row
      * @return CommentInterface
-     * @throws OutOfRangeException If comment row list dose not contain the key
+     * @throws InvalidArgumentException If the provided argument is not key or node
      */
-    protected function getComment($key)
+    protected function getComment($keyOrNode)
     {
-        if (!isset($this->rowList[$key])) {
-            throw new OutofRangeException(sprintf(
-                'Cannot find the comment: %s', $key));
+        if (is_int($key) && isset($this->rowList[$key])) {
+            $node = $this->rowList[$key];
+        } elseif (is_object($keyOrNode)) {
+            $node = $keyOrNode;
+        } else {
+            throw new InvalidArgumentException(sprintf(
+                'Cannot find the comment: %s', var_export($keyOrNode, 1)));
         }
 
-        $node = $this->rowList[$key];
         if ($node->data instanceof CommentInterface) {
             return $node->data;
         }

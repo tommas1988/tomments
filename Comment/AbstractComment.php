@@ -36,6 +36,11 @@ abstract class AbstractComment implements CommentInterface
     protected $isChild = false;
 
     /**
+     *
+     */
+    protected $children = array();
+
+    /**
      * @see    CommentInterface::setKey
      * @throws InvalidArgumentException If key is not integer
      */
@@ -153,6 +158,15 @@ abstract class AbstractComment implements CommentInterface
     public function markChildFlag()
     {
         $this->isChild = true;
+        return $this;
+    }
+
+    /**
+     * @see CommentInterface::addChild
+     */
+    public function addChild(CommentInterface $comment)
+    {
+        $this->children[] = $comment;
         return $this;
     }
 

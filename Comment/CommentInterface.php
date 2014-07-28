@@ -86,4 +86,12 @@ interface CommentInterface
      * @return int
      */
     public function getLevel();
+
+    /**
+     * Add a child comment
+     *
+     * @param  CommentInterface comment
+     * @return self
+     */
+    public function addChild(CommentInterface $comment);
 }
