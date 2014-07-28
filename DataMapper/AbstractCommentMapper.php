@@ -224,8 +224,14 @@ abstract class AbstractCommentMapper implements CommentMapperInterface
 
         $isChild = $comment->isChild();
         if ($isChild) {
-            $sql = 'UPDATE ' . $this->originTableName . 'set child_count = child_count + 1';
-            if (1 !== $this->db->exec($sql)) {
+            $sql = 'UPDATE ' . $this->originTableName
+                . 'SET child_count = child_count + 1'
+                . 'WHERE id = ?';
+
+            $stmt = $this->db->prepare($sql);
+            $stmt->bindValue(1, $comment->getOriginKey(), PDO::PARAM_INT);
+
+            if (!$stmt->execute()) {
                 $this->db->rollBack();
                 $this->error(
                     'Cannot update child_count when insert a child comment');
