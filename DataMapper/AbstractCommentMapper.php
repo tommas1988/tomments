@@ -188,19 +188,19 @@ abstract class AbstractCommentMapper implements CommentMapperInterface
      * Find comments
      * @see CommentMapperInterface::findComments
      * @throws InvalidArgumentException If startKey is not int
-     * @throws InvalidArgumentException If count is less than 1
+     * @throws InvalidArgumentException If length is less than 1
      */
-    public function findComments($startKey, $count, $originKey = null)
+    public function findComments($startKey, $length, $originKey = null)
     {
         if (!ctype_digit($startKey)) {
             throw new InvalidArgumentException(sprintf(
                 'Invalid start key: %s', $startKey));
         }
-        if ($count < 1) {
+        if ($length < 1) {
             throw new InvalidArgumentException('Count must be greater than 0');
         }
-        $limit = $count;
 
+        $count = $length;
         if (!$originKey) {
             $childCount = $this->loadChildCommentRows(array($originKey));
             $startKey++;
@@ -211,7 +211,7 @@ abstract class AbstractCommentMapper implements CommentMapperInterface
             $this->loadCommentRows($startKey, $count);
         }
 
-        return $this->loadComments($startKey, $limit);
+        return $this->loadComments($startKey, $length);
     }
 
     /**

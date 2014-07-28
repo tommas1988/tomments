@@ -7,11 +7,11 @@ interface CommentMapperInterface
      * Find comments
      *
      * @param  int startKey The key that start searching with
-     * @param  int count The number of comments need to searc
+     * @param  int length The number of comments need to search
      * @param  null|int originKey The origin comment key of the startKey comment
      * @return CommentInterface[]
      */
-    public function findComments($startKey, $count, $originKey = null);
+    public function findComments($startKey, $length, $originKey = null);
 
     /**
      * Insert a comment
