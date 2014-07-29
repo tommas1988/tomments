@@ -85,7 +85,7 @@ abstract class AbstractCommentMapper implements CommentMapperInterface
         $sql = 'SELECT id, child_count, '
             . implode(', ', $this->columnMapper)
             . 'FROM' . $this->originTableName
-            . 'WHERE id >= ? LIMIT ?';
+            . 'WHERE id <= ? LIMIT ? ORDER BY DESC';
 
         return $sql;
     }
