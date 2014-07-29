@@ -88,6 +88,7 @@ abstract class AbstractCommentMapper implements
 
     /**
      * @see InjectCommentManagerInterface::getCommentManager
+     * @throws LogicException If CommentManager dose not set
      */
     public function getCommentManager()
     {
