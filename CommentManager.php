@@ -23,12 +23,17 @@ class CommentManager
     /**
      * Constructor
      *
+     * @param CommentMapperInterface commentMapper The comment data mapper
      * @param CommentInterface commentPrototype The commentPrototype
      */
     public function __construct(
         CommentMapperInterface $commentMapper,
         CommentInterface $commentPrototype
     ) {
+        if ($commentMapper instanceof InjectCommentManagerInterface) {
+            $commentMapper->setCommentManager($this);
+        }
+
         $this->commnetMapper    = $commentMapper;
         $this->commentPrototype = $commentPrototype;
     }
@@ -37,15 +42,15 @@ class CommentManager
      * Get commmnts
      *
      * @param  int startKey The key that start searching with
-     * @param  int count The number of comments that need to return
+     * @param  int length The number of comments that need to return
      * @param  bool isChild If the startKey map to a child comment
      * @param  int|null originKey The origin comment key of this child comment
      * @return array
      * @throws InvalidArgumentException If originKey is null and isChild is set to true
      */
-    public function getComments($startKey, $count, $originKey = null)
+    public function getComments($startKey, $length, $originKey = null)
     {
-        return $this->mapper->findComments($startKey, $count, $originKey);
+        return $this->commentMapper->findComments($startKey, $length, $originKey);
     }
 
     /**
@@ -69,7 +74,7 @@ class CommentManager
 
         $comment->load($params);
 
-        return $this->mapper->insert($comment);
+        return $this->commentMapper->insert($comment);
     }
 
     /**
@@ -91,7 +96,7 @@ class CommentManager
         $comment->setKey($key)
             ->load($params);
 
-        return $this->mapper->update($comment);
+        return $this->commentMapper->update($comment);
     }
 
     /**
@@ -112,7 +117,7 @@ class CommentManager
 
         $comment->setKey($key);
 
-        return $this->mapper->delete($comment);
+        return $this->commentMapper->delete($comment);
     }
 
     /**

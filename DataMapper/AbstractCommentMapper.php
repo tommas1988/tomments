@@ -1,12 +1,16 @@
 <?php
 namespace Tomments\DataMapper;
 
+use Tomments\CommentManager;
+use Tomments\InjectCommentManagerInterface;
 use PDO;
 use PDOStatement;
 use InvalidArgumentException;
 use LogicException;
 
-abstract class AbstractCommentMapper implements CommentMapperInterface
+abstract class AbstractCommentMapper implements
+    CommentMapperInterface,
+    InjectCommentManagerInterface
 {
     /**
      * Find child comment statement
@@ -54,12 +58,12 @@ abstract class AbstractCommentMapper implements CommentMapperInterface
     /**
      * Constructor
      *
-     * @param  CommentManager commentManager
      * @param  PDO db Database connection
+     * @param  string originTableName The origin comment table name
+     * @param  string childTableName The child comment table name
      * @throws InvalidArgumentException If no field_name_mapper field in the config
      */
     public function __contruct(
-        CommentManager $commentManager,
         PDO $db,
         $originTableName = 'ori_comment',
         $childTableName = 'chi_comment'
@@ -68,10 +72,30 @@ abstract class AbstractCommentMapper implements CommentMapperInterface
             throw new LogicException(
                 'colmnMapper must be defined by subclass');
         }
-        $this->commentManager  = $commentManager;
         $this->db              = $db;
         $this->originTableName = $originTableName;
         $this->childTableName  = $childTableName;
+    }
+
+    /**
+     * @see InjectCommentManagerInterface::setCommentManager
+     */
+    public function setCommentManager(CommentManager $commentManager)
+    {
+        $this->commentManager = $commentManager;
+        return $this;
+    }
+
+    /**
+     * @see InjectCommentManagerInterface::getCommentManager
+     */
+    public function getCommentManager()
+    {
+        if (!$this->commentManager) {
+            throw new LogicException('CommentManager dose not set');
+        }
+
+        return $this->commentManager;
     }
 
     /**
@@ -406,7 +430,7 @@ abstract class AbstractCommentMapper implements CommentMapperInterface
             return $node->data;
         }
 
-        $comment = clone $this->commentManager->getCommentPrototype();
+        $comment = clone $this->getCommentManager()->getCommentPrototype();
         $comment->load($node->data)
             ->setKey($key);
         if ($node->isChild) {
