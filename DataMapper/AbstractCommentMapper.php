@@ -56,6 +56,12 @@ abstract class AbstractCommentMapper implements
     protected $rear;
 
     /**
+     * The number of comment row in the rowList
+     * @vat int
+     */
+    protected $length = 0;
+
+    /**
      * Constructor
      *
      * @param  PDO db Database connection
@@ -109,8 +115,8 @@ abstract class AbstractCommentMapper implements
     {
         $sql = 'SELECT id, child_count, '
             . implode(', ', $this->columnMapper)
-            . 'FROM' . $this->originTableName
-            . 'WHERE id <= ? LIMIT ? ORDER BY DESC';
+            . ' FROM' . $this->originTableName
+            . ' WHERE id <= ? LIMIT ? ORDER BY DESC';
 
         return $sql;
     }
@@ -126,13 +132,13 @@ abstract class AbstractCommentMapper implements
     {
         $sql = 'SELECT id, level, parent_id, origin_id, '
             . implode(', ', $this->columnMapper)
-            . 'FROM' . $this->childTableName
-            . 'WHERE origin_id IN (';
+            . ' FROM' . $this->childTableName
+            . ' WHERE origin_id IN (';
 
         for ($i = 1; $i < $originKeyCount; $i++) {
             $sql .= '?, ';
         }
-        $sql .= '?)';
+        $sql .= '?) ORDER BY ASC';
 
         return $sql;
     }
@@ -174,7 +180,6 @@ abstract class AbstractCommentMapper implements
      * @param  array updateColumns The columns need to update
      * @param  bool isChild
      * @return string
-     * @throws LogicException If updateColumns contain preserved column name
      */
     public function updateCommentStatement($updateColumns, $isChild = false)
     {
@@ -214,21 +219,30 @@ abstract class AbstractCommentMapper implements
      * @see CommentMapperInterface::findComments
      * @throws InvalidArgumentException If startKey is not int
      * @throws InvalidArgumentException If length is less than 1
+     * @throws InvalidArgumentException If origin key is not int when provided
      */
     public function findComments($startKey, $length, $originKey = null)
     {
-        if (!ctype_digit($startKey)) {
+        if (!is_int($startKey)) {
             throw new InvalidArgumentException(sprintf(
                 'Invalid start key: %s', $startKey));
         }
-        if ($length < 1) {
-            throw new InvalidArgumentException('Count must be greater than 0');
+        if (!is_int($length) && $length < 1) {
+            throw new InvalidArgumentException('Length must be greater than 0');
         }
 
         $count = $length;
         if (!$originKey) {
+            if (!is_int($originKey)) {
+                throw new InvalidArgumentException(
+                    'Invalid origin key: ' . $originKey);
+            }
+
             $childCount = $this->loadChildCommentRows(array($originKey));
-            $startKey++;
+            $offset     = $this->getCommentRowOffset($startKey);
+            $childCount -= ((int) $offset + 1);
+
+            $startKey = $originKey - 1;
             $count = $count > $childcCount ? $count - $childCount : 0;
         }
 
@@ -535,6 +549,28 @@ abstract class AbstractCommentMapper implements
     }
 
     /**
+     * Get a comment row offset in comment row list
+     *
+     * @param  int key The comment row key
+     * @return false|int
+     */
+    protected function getCommentRowOffset($key)
+    {
+        if (!isset($this->rowList[$key])) {
+            return false;
+        }
+
+        $node  = $this->rowList[$key];
+        $count = 1;
+        while ($this->rear !== $node) {
+            $node = $node->next;
+            $count++;
+        }
+
+        return $this->length - $count;
+    }
+
+    /**
      * Insert a comment data row into comment row list
      *
      * @param  array row
@@ -591,6 +627,8 @@ abstract class AbstractCommentMapper implements
             }
             $this->rowList[$key] = $node;
         }
+
+        $this->length++;
 
         return $this;
     }
