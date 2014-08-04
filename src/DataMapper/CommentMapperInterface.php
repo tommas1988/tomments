@@ -1,6 +1,8 @@
 <?php
 namespace Tomments\DataMapper;
 
+use Tomments\Comment\CommentInterface;
+
 interface CommentMapperInterface
 {
     /**

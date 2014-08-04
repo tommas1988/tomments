@@ -4,12 +4,12 @@ namespace Tomments\Comment;
 interface CommentInterface
 {
     /**
-     * Load comment
+     * Load comment params
      *
-     * @param  array data
+     * @param  array params
      * @return self
      */
-    public function load(array $data);
+    public function load(array $params);
 
     /**
      * Whether the comment is child
@@ -94,4 +94,18 @@ interface CommentInterface
      * @return self
      */
     public function addChild(CommentInterface $comment);
+
+    /**
+     * Whether has children comments
+     *
+     * @return bool
+     */
+    public function hasChildren();
+
+    /**
+     * Get children comments
+     *
+     * @return CommentInterface[]
+     */
+    public function getChildren();
 }
