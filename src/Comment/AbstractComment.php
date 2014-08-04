@@ -41,12 +41,28 @@ abstract class AbstractComment implements CommentInterface
     protected $children = array();
 
     /**
+     * The actual load params method
+     *
+     * @param  array params
+     */
+    abstract protected function doLoad(array $params);
+
+    /**
+     * @see CommentInterface::load
+     */
+    public function load(array $params)
+    {
+        $this->doLoad($params);
+        return $this;
+    }
+
+    /**
      * @see    CommentInterface::setKey
      * @throws InvalidArgumentException If key is not integer
      */
     public function setKey($key)
     {
-        if (!ctype_digit($key)) {
+        if (!is_int($key) && !ctype_digit($key)) {
             throw new InvalidArgumentException(sprintf(
                 'Invalid key: %s', $key));
         }
@@ -69,7 +85,7 @@ abstract class AbstractComment implements CommentInterface
      */
     public function setLevel($level)
     {
-        if (!ctype_digit($level)) {
+        if (!is_int($level) && !ctype_digit($level)) {
             throw new InvalidArgumentException(sprintf(
                 'Invalid level: %', $level));
         }
@@ -96,7 +112,7 @@ abstract class AbstractComment implements CommentInterface
      */
     public function setParentKey($parentKey)
     {
-        if (!ctype_digit($parentKey)) {
+        if (!is_int($parentKey) && !ctype_digit($parentKey)) {
             throw new InvalidArgumentException(sprintf(
                 'Invalid parent key: %s', $parentKey));
         }
@@ -123,7 +139,7 @@ abstract class AbstractComment implements CommentInterface
      */
     public function setOriginKey($originKey)
     {
-        if (!ctype_digit($originKey)) {
+        if (!is_int($originKey) && !ctype_digit($originKey)) {
             throw new InvalidArgumentException(sprintf(
                 'Invalid origin key: %s', $originKey));
         }
@@ -168,6 +184,22 @@ abstract class AbstractComment implements CommentInterface
     {
         $this->children[] = $comment;
         return $this;
+    }
+
+    /**
+     * @see CommentInterface::hasChildren
+     */
+    public function hasChildren()
+    {
+        return !empty($this->children);
+    }
+
+    /**
+     * @see CommentInterface::getChildren
+     */
+    public function getChildren()
+    {
+        return $this->children;
     }
 
     /**

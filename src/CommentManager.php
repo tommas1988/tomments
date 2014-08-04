@@ -34,7 +34,7 @@ class CommentManager
             $commentMapper->setCommentManager($this);
         }
 
-        $this->commnetMapper    = $commentMapper;
+        $this->commentMapper    = $commentMapper;
         $this->commentPrototype = $commentPrototype;
     }
 
