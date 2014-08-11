@@ -26,16 +26,10 @@ abstract class AbstractCommentMapper implements
     protected $db;
 
     /**
-     * Origin comment table name
+     * Comment table name
      * @var string
      */
-    protected $originTableName;
-
-    /**
-     * Child comment table name
-     * @var string
-     */
-    protected $childTableName;
+    protected $tableName;
 
     /**
      * Comment row list storage
@@ -61,22 +55,18 @@ abstract class AbstractCommentMapper implements
      * Constructor
      *
      * @param  PDO db Database connection
-     * @param  string originTableName The origin comment table name
-     * @param  string childTableName The child comment table name
+     * @param  string tableName The comment table name
      * @throws InvalidArgumentException If no field_name_mapper field in the config
      */
-    public function __construct(
-        PDO $db,
-        $originTableName = 'ori_comment',
-        $childTableName = 'chi_comment'
-    ) {
+    public function __construct(PDO $db, $tableName = 'comment')
+    {
         if (!isset($this->columnMapper) || !is_array($this->columnMapper)) {
             throw new LogicException(
                 'colmnMapper must be defined by subclass');
         }
-        $this->db              = $db;
-        $this->originTableName = $originTableName;
-        $this->childTableName  = $childTableName;
+
+        $this->db        = $db;
+        $this->tableName = $tableName;
     }
 
     /**
@@ -111,7 +101,7 @@ abstract class AbstractCommentMapper implements
     {
         $sql = 'SELECT id, child_count, '
             . implode(', ', $this->columnMapper)
-            . ' FROM ' . $this->originTableName
+            . ' FROM ' . $this->tableName
             . ' WHERE id <= ? LIMIT ? ORDER BY DESC';
 
         return $sql;
@@ -128,7 +118,7 @@ abstract class AbstractCommentMapper implements
     {
         $sql = 'SELECT id, level, parent_id, origin_id, '
             . implode(', ', $this->columnMapper)
-            . ' FROM ' . $this->childTableName
+            . ' FROM ' . $this->tableName
             . ' WHERE origin_id IN (';
 
         for ($i = 1; $i < $originKeyCount; $i++) {
@@ -148,19 +138,16 @@ abstract class AbstractCommentMapper implements
      */
     public function insertCommentStatement($isChild = false)
     {
+        $sql = 'INSERT INTO ' . $this->tableName;
         if ($isChild) {
-            $sql = 'INSERT INTO ' . $this->childTableName
-                . ' (id, level, parent_id, origin_id, ';
-            $columnCount = 4;
+            $sql .= ' (level, parent_id, origin_id, ';
+            $columnCount = 3 + count($this->columnMapper);
         } else {
-            $sql = 'INSERT INTO ' . $this->originTableName
-                . ' (id, child_count, ';
-            $columnCount = 2;
+            $sql .= ' (child_count, ';
+            $columnCount = 1 + count($this->columnMapper);
         }
 
         $sql .= implode(', ', $this->columnMapper) . ') VALUES (';
-
-        $columnCount += count($this->columnMapper);
         for ($i = 1; $i < $columnCount; $i++) {
             $sql .= '?, ';
         }
@@ -170,17 +157,29 @@ abstract class AbstractCommentMapper implements
     }
 
     /**
+     * Increment child_count column for origin comment
+     * Handy for test.
+     *
+     * @return string
+     */
+    public function updateChildCountStatement()
+    {
+        $sql = 'UPDATE ' . $this->tableName
+            . ' SET child_count = child_count + 1'
+            . ' WHERE id = ?';
+        return $sql;
+    }
+
+    /**
      * Update comment statement
      * Handy for test.
      *
      * @param  array updateColumns The columns need to update
-     * @param  bool isChild
      * @return string
      */
-    public function updateCommentStatement($updateColumns, $isChild = false)
+    public function updateCommentStatement(array $updateColumns)
     {
-        $tableName = $isChild ? $this->childTableName : $this->originTableName;
-        $sql       = 'UPDATE ' . $tableName . ' SET ';
+        $sql = 'UPDATE ' . $this->tableName . ' SET ';
 
         $setStr = '';
         foreach ($updateColumns as $column) {
@@ -204,8 +203,10 @@ abstract class AbstractCommentMapper implements
      */
     public function deleteCommentStatement($isChild = false)
     {
-        $tableName = $isChild ? $this->childTableName : $this->originTableName;
-        $sql       = 'DELETE FROM ' . $tableName . ' WHERE id = ?';
+        $sql = 'DELETE FROM ' . $this->tableName . ' WHERE id = ?';
+        if (!$isChild) {
+            $sql .= ' OR origin_id = ?';
+        }
 
         return $sql;
     }
@@ -261,17 +262,15 @@ abstract class AbstractCommentMapper implements
 
         $isChild = $comment->isChild();
         if ($isChild) {
-            $sql = 'UPDATE ' . $this->originTableName
-                . ' SET child_count = child_count + 1'
-                . ' WHERE id = ?';
-
-            $stmt = $this->db->prepare($sql);
+            $stmt = $this->db->prepare($this->updateChildCountStatement());
             $stmt->bindValue(1, $comment->getOriginKey(), PDO::PARAM_INT);
 
             if (!$stmt->execute()) {
                 $this->db->rollBack();
                 $this->error(
-                    'Cannot update child_count when insert a child comment');
+                    'Cannot increment child_count with comment :%d',
+                    $comment->getOriginKey());
+
                 return false;
             }
         }
@@ -336,8 +335,7 @@ abstract class AbstractCommentMapper implements
 
         $this->db->beginTransaction();
         $stmt = $this->db->prepare(
-            $this->updateCommentStatement(
-                array_keys($updateColumns), $comment->isChild()));
+            $this->updateCommentStatement(array_keys($updateColumns)));
 
         foreach ($updateColumns as $column => $value) {
             $stmt->bindValue(":$column", $value);
@@ -346,7 +344,9 @@ abstract class AbstractCommentMapper implements
 
         if (!$stmt->execute()) {
             $this->db->rollBack();
-            $this->error('Cannot update a comment', $stmt);
+            $this->error(
+                'Cannot update comment: %d', $comment->getKey(), $stmt);
+
             return false;
         }
 
@@ -363,30 +363,18 @@ abstract class AbstractCommentMapper implements
         $this->db->beginTransaction();
 
         $isChild = $comment->isChild();
-
-        if (!$isChild) {
-            $sql = 'DELETE FROM ' . $this->childTableName
-                . ' WHERE origin_id = ?';
-
-            $stmt = $this->db->prepare($sql);
-            $stmt->bindValue(1, $comment->getOriginKey());
-
-            if (!$stmt->execute()) {
-                $this->db->rollBack();
-                $this->error(sprintf(
-                    'Cannot delete child comments with origin key: %s',
-                    $comment->getOriginKey()), $stmt);
-
-                return false;
-            }
-        }
+        $key     = $comment->getKey();
 
         $stmt = $this->db->prepare($this->deleteCommentStatement($isChild));
-        $stmt->bindValue(':id', $comment->getKey());
+        $stmt->bindValue(':id', $key);
+
+        if (!$isChild) {
+            $stmt->bindValue(':origin_id', $key);
+        }
 
         if (!$stmt->execute()) {
             $this->db->rollBack();
-            $this->error('Cannot delete a comment', $stmt);
+            $this->error('Cannot delete comment: %d', $key, $stmt);
             return false;
         }
 
@@ -399,18 +387,17 @@ abstract class AbstractCommentMapper implements
      *
      * @param  int startKey The key start to load
      * @param  int length The length of comment to be loaded
-     * @param  bool isChild Whether the startKey comment is a child
      * @return CommentInterface[]
      * @throws InvalidArgumentException If cannot find comment row node with start key
      */
-    protected function loadComments($startKey, $length, $isChild)
+    protected function loadComments($startKey, $length)
     {
-        if (!isset($this->rowList[$startKey][$isChild])) {
+        if (!isset($this->rowList[$startKey])) {
             throw new InvalidArgumentException(sprintf(
                 'Cannot find comment row node with key: %d', $startKey));
         }
 
-        $node     = $this->rowList[$startKey][$isChild];
+        $node     = $this->rowList[$startKey];
         $comments = array();
         for ($i = 0; $i < $length; $i++) {
             if (null === $node) {
@@ -418,13 +405,15 @@ abstract class AbstractCommentMapper implements
             }
 
             $comment = $this->getComment($node);
-            if (!$node->isChild || $comment->getKey() === $startKey) {
+            if (
+                !$node->isChild
+                || $comment->getKey() === $startKey
+                || !isset($this->rowList[$comment->getParentKey()])
+            ) {
                 $comments[] = $comment;
             } else {
-                $prevNode = (1 === $comment->getLevel())
-                    ? $this->rowList[$comment->getParentKey()][0]
-                    : $this->rowList[$comment->getParentKey()][1];
-                $parentComment = $this->getComment($prevNode);
+                $parentComment = $this->getComment(
+                    $this->rowList[$comment->getParentKey()]);
                 $parentComment->addChild($comment);
             }
 
@@ -558,11 +547,11 @@ abstract class AbstractCommentMapper implements
      */
     protected function getCommentRowOffset($key, $isChild)
     {
-        if (!isset($this->rowList[$key][$isChild])) {
+        if (!isset($this->rowList[$key])) {
             return false;
         }
 
-        $node  = $this->rowList[$key][$isChild];
+        $node  = $this->rowList[$key];
         $count = 1;
         while ($this->rear !== $node) {
             $node = $node->next;
@@ -584,7 +573,7 @@ abstract class AbstractCommentMapper implements
     {
         $isChild = !isset($row['child_count']);
         $key = $row['id'];
-        if (!$isChild || !isset($this->rowList[$row['parent_id']][1])) {
+        if (!$isChild || !isset($this->rowList[$row['parent_id']])) {
             $node = new stdClass();
             $node->data    = $row;
             $node->next    = null;
@@ -594,24 +583,21 @@ abstract class AbstractCommentMapper implements
                 $this->rear->next = $node;
             }
             $this->rear = $node;
-            $this->rowList[$key][$isChild] = $node;
+            $this->rowList[$key] = $node;
         } else {
             $level     = $row['level'];
             $parentKey = $row['parent_id'];
             $originKey = $row['origin_id'];
 
-            if (1 === $level && isset($this->rowList[$parentKey][0])) {
-                $prevNode = $this->rowList[$parentKey][0];
-            } elseif ($level > 1 && isset($this->rowList[$parentKey][1])) {
-                $prevNode = $this->rowList[$parentKey][1];
+            if (isset($this->rowList[$parentKey])) {
+                $prevNode = $this->rowList[$parentKey];
             } else {
                 throw new LogicException('Cannot find previous node');
             }
             while (
                 $prevNode !== $this->rear
-                && ($prevNode->isChild
-                && ($level < $prevNode->data['level']
-                || $parentKey === $prevNode->data['parent_id']))
+                && $prevNode->next->isChild
+                && (!$prevNode->isChild || $level <= $prevNode->data['level'])
             ) {
                 $prevNode = $prevNode->next;
             }
@@ -636,7 +622,7 @@ abstract class AbstractCommentMapper implements
             if ($prevNode === $this->rear) {
                 $this->rear = $node;
             }
-            $this->rowList[$key][1] = $node;
+            $this->rowList[$key] = $node;
         }
 
         $this->length++;
@@ -648,10 +634,11 @@ abstract class AbstractCommentMapper implements
      * Sql execute error
      *
      * @param  string message Error message
+     * @param  array args The message args
      * @param  PDOStatement stmt
      * @throws LogicException
      */
-    protected function error($message, PDOStatement $stmt = null)
+    protected function error($message, array $args = null, PDOStatement $stmt)
     {
         $errorInfo = array(
             'database'  => $this->db->errorInfo(),
@@ -660,6 +647,9 @@ abstract class AbstractCommentMapper implements
         if ($stmt) {
             $errorInfo['statment'] = $stmt->errorInfo();
         }
+
+        array_unshift($message);
+        $message = call_user_func_array('sprintf', $args);
 
         error_log(sprintf(
             'Error message: %s, Sql error: %s',

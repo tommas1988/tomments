@@ -11,8 +11,9 @@ class AbstractCommentMapperTest extends \PHPUnit_Framework_TestCase
 {
     protected $pdoStub;
     protected $mapper;
-    protected static $childCommentData;
-    protected static $originCommentData;
+    protected static $childCommentDataset;
+    protected static $originCommentDataset;
+    protected static $commentDataset;
 
     protected function setUp()
     {
@@ -31,10 +32,18 @@ class AbstractCommentMapperTest extends \PHPUnit_Framework_TestCase
 
     public static function setUpBeforeClass()
     {
-        $path = __DIR__ . '/../data/';
+        $dataset = include __DIR__ . '/../data/comments.php';
+        self::$commentDataset = $dataset;
 
-        self::$childCommentData  = include $path . 'child_comments.php';
-        self::$originCommentData = include $path . 'origin_comments.php';
+        self::$childCommentDataset  = array();
+        self::$originCommentDataset = array();
+        foreach ($dataset as $data) {
+            if (is_null($data['origin_id'])) {
+                self::$originCommentDataset[] = $data;
+            } else {
+                self::$childCommentDataset[] = $data;
+            }
+        }
     }
 
     public function testCannotCreateMapperIfNotDefineColumnMapper()
@@ -88,45 +97,41 @@ class AbstractCommentMapperTest extends \PHPUnit_Framework_TestCase
     public function testFindCommentsWithChildStartKey()
     {
         $stmtStub = new PDOStatementStub();
-        $stmtStub->addResultSet($this->getChildCommentResultSet([10]));
-        $stmtStub->addResultSet($this->getOriginCommentResultSet(1, 9));
-        $stmtStub->addResultSet($this->getChildCommentResultSet([4, 9]));
+        $stmtStub->addResultSet($this->getChildCommentResultSet([19]));
+        $stmtStub->addResultSet($this->getOriginCommentResultSet(1, 6));
+        $stmtStub->addResultSet($this->getChildCommentResultSet([17]));
 
         $this->pdoStub->setPdoStatement($stmtStub);
 
-        $comments = $this->mapper->findComments(3, 10, 10);
+        $comments = $this->mapper->findComments(21, 10, 19);
 
         $expected = 'SELECT id, level, parent_id, origin_id, text, date '
-            . 'FROM chi_comment '
+            . 'FROM comment '
             . 'WHERE origin_id IN (?) ORDER BY ASC';
         $this->assertSame($expected, $this->pdoStub->getStatement(0));
 
         $expected = 'SELECT id, child_count, text, date '
-            . 'FROM ori_comment '
+            . 'FROM comment '
             . 'WHERE id <= ? LIMIT ? ORDER BY DESC';
         $this->assertSame($expected, $this->pdoStub->getStatement(1));
 
         $expected = 'SELECT id, level, parent_id, origin_id, text, date '
-            . 'FROM chi_comment '
+            . 'FROM comment '
             . 'WHERE origin_id IN (?, ?) ORDER BY ASC';
         $this->assertSame($expected, $this->pdoStub->getStatement(2));
 
-        $childData  = self::$childCommentData;
-        $originData = self::$originCommentData;
-        foreach ($originData as &$data) {
-            unset($data['child_count']);
-        }
+        $dataset = self::$commentDataset;
         $expected = array(
-            $childData[2],
-            $originData[8],
-            $childData[3],
-            $childData[14],
-            $originData[7],
-            $originData[6],
-            $originData[5],
-            $originData[4],
-            $originData[3],
-            $childData[4],
+            $this->getCommentResultArray($dataset[20]),
+            $this->getCommentResultArray($dataset[22]),
+            $this->getCommentResultArray($dataset[16]),
+            $this->getCommentResultArray($dataset[17]),
+            $this->getCommentResultArray($dataset[21]),
+            $this->getCommentResultArray($dataset[15]),
+            $this->getCommentResultArray($dataset[14]),
+            $this->getCommentResultArray($dataset[11]),
+            $this->getCommentResultArray($dataset[8]),
+            $this->getCommentResultArray($dataset[4]),
         );
 
         $result = array();
@@ -140,38 +145,34 @@ class AbstractCommentMapperTest extends \PHPUnit_Framework_TestCase
     {
         $stmtStub = new PDOStatementStub();
         $stmtStub->addResultSet($this->getOriginCommentResultSet(0, 10));
-        $stmtStub->addResultSet($this->getChildCommentResultSet([9, 10]));
+        $stmtStub->addResultSet($this->getChildCommentResultSet([17, 19]));
 
         $this->pdoStub->setPdoStatement($stmtStub);
 
-        $comments = $this->mapper->findComments(10, 10);
+        $comments = $this->mapper->findComments(19, 10);
 
         $expected = 'SELECT id, child_count, text, date '
-            . 'FROM ori_comment '
+            . 'FROM comment '
             . 'WHERE id <= ? LIMIT ? ORDER BY DESC';
         $this->assertSame($expected, $this->pdoStub->getStatement(0));
 
         $expected = 'SELECT id, level, parent_id, origin_id, text, date '
-            . 'FROM chi_comment '
+            . 'FROM comment '
             . 'WHERE origin_id IN (?, ?) ORDER BY ASC';
         $this->assertSame($expected, $this->pdoStub->getStatement(1));
 
-        $childData  = self::$childCommentData;
-        $originData = self::$originCommentData;
-        foreach ($originData as &$data) {
-            unset($data['child_count']);
-        }
+        $dataset = self::$commentDataset;
         $expected = array(
-            $originData[9],
-            $childData[0],
-            $childData[1],
-            $childData[2],
-            $originData[8],
-            $childData[3],
-            $childData[14],
-            $originData[7],
-            $originData[6],
-            $originData[5],
+            $this->getCommentResultArray($dataset[18]),
+            $this->getCommentResultArray($dataset[19]),
+            $this->getCommentResultArray($dataset[20]),
+            $this->getCommentResultArray($dataset[22]),
+            $this->getCommentResultArray($dataset[16]),
+            $this->getCommentResultArray($dataset[17]),
+            $this->getCommentResultArray($dataset[21]),
+            $this->getCommentResultArray($dataset[15]),
+            $this->getCommentResultArray($dataset[14]),
+            $this->getCommentResultArray($dataset[11]),
         );
 
         $result = array();
@@ -190,15 +191,15 @@ class AbstractCommentMapperTest extends \PHPUnit_Framework_TestCase
 
         $this->assertTrue($this->mapper->insert($comment));
 
-        $expected = 'UPDATE ori_comment '
+        $expected = 'UPDATE comment '
             . 'SET child_count = child_count + 1 '
             . 'WHERE id = ?';
         $this->assertSame($expected, $this->pdoStub->getStatement(0));
 
-        $expected = 'INSERT INTO chi_comment '
-            . '(id, level, parent_id, origin_id, text, date) '
+        $expected = 'INSERT INTO comment '
+            . '(level, parent_id, origin_id, text, date) '
             . 'VALUES '
-            . '(?, ?, ?, ?, ?, ?)';
+            . '(?, ?, ?, ?, ?)';
         $this->assertSame($expected, $this->pdoStub->getStatement(1));
     }
 
@@ -209,10 +210,10 @@ class AbstractCommentMapperTest extends \PHPUnit_Framework_TestCase
 
         $this->assertTrue($this->mapper->insert($comment));
 
-        $expected = 'INSERT INTO ori_comment '
-            . '(id, child_count, text, date) '
+        $expected = 'INSERT INTO comment '
+            . '(child_count, text, date) '
             . 'VALUES '
-            . '(?, ?, ?, ?)';
+            . '(?, ?, ?)';
         $this->assertSame($expected, $this->pdoStub->getStatement(0));
     }
 
@@ -247,7 +248,7 @@ class AbstractCommentMapperTest extends \PHPUnit_Framework_TestCase
         $comment = new FooComment();
         $this->mapper->update($comment);
 
-        $expected = 'UPDATE ori_comment SET '
+        $expected = 'UPDATE comment SET '
             . 'text = ? '
             . 'WHERE id = ?';
         $this->assertSame($expected, $this->pdoStub->getStatement(0));
@@ -255,7 +256,7 @@ class AbstractCommentMapperTest extends \PHPUnit_Framework_TestCase
         $comment->markChildFlag();
         $this->mapper->update($comment);
 
-        $expected = 'UPDATE chi_comment SET '
+        $expected = 'UPDATE comment SET '
             . 'text = ? '
             . 'WHERE id = ?';
         $this->assertSame($expected, $this->pdoStub->getStatement(1));
@@ -270,7 +271,7 @@ class AbstractCommentMapperTest extends \PHPUnit_Framework_TestCase
 
         $this->mapper->delete($comment);
 
-        $expected = 'DELETE FROM chi_comment WHERE id = ?';
+        $expected = 'DELETE FROM comment WHERE id = ?';
         $this->assertSame($expected, $this->pdoStub->getStatement(0));
     }
 
@@ -279,28 +280,35 @@ class AbstractCommentMapperTest extends \PHPUnit_Framework_TestCase
         $this->pdoStub->setPdoStatement(new PDOStatementStub());
         $this->mapper->delete(new FooComment());
 
-        $expected = 'DELETE FROM chi_comment '
-            . 'WHERE origin_id = ?';
+        $expected = 'DELETE FROM comment '
+            . 'WHERE id = ? OR origin_id = ?';
         $this->assertSame($expected, $this->pdoStub->getStatement(0));
+    }
 
-        $expected = 'DELETE FROM ori_comment WHERE id = ?';
-        $this->assertSame($expected, $this->pdoStub->getStatement(1));
+    protected function getCommentResultArray($data)
+    {
+        if (is_null($data['origin_id'])) {
+            return array('id' => $data['id']);
+        } else {
+            unset($data['child_count']);
+            return $data;
+        }
     }
 
     protected function getOriginCommentResultSet($offset, $length)
     {
-        $data = self::$originCommentData;
-        return array_slice(array_reverse($data), $offset, $length);
+        $dataset = self::$originCommentDataset;
+        return array_slice(array_reverse($dataset), $offset, $length);
     }
 
     protected function getChildCommentResultSet(array $originKeys)
     {
-        $data      = self::$childCommentData;
+        $dataset   = self::$childCommentDataset;
         $resultSet = array();
         foreach ($originKeys as $originKey) {
-            array_walk($data, function($comment) use (&$resultSet, $originKey) {
-                if ($comment['origin_id'] === $originKey) {
-                    $resultSet[] = $comment;
+            array_walk($dataset, function($data) use (&$resultSet, $originKey) {
+                if ($data['origin_id'] === $originKey) {
+                    $resultSet[] = $data;
                 }
             });
         }
