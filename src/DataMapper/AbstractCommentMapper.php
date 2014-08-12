@@ -32,24 +32,10 @@ abstract class AbstractCommentMapper implements
     protected $tableName;
 
     /**
-     * Comment row list storage
-     * Each node is a stdClass object with three properties: data, next, isChild
-     * @var stdClass[]
-     * @var ResultSet
+     * Comment data list
+     * @var CommentDataList
      */
-    protected $rowList;
-
-    /**
-     * The rear node of rowList
-     * @var stdClass
-     */
-    protected $rear;
-
-    /**
-     * The number of comment row in the rowList
-     * @vat int
-     */
-    protected $length = 0;
+    protected $commentDataList;
 
     /**
      * Constructor
@@ -65,8 +51,9 @@ abstract class AbstractCommentMapper implements
                 'colmnMapper must be defined by subclass');
         }
 
-        $this->db        = $db;
-        $this->tableName = $tableName;
+        $this->db              = $db;
+        $this->tableName       = $tableName;
+        $this->commentDataList = new CommentDataList();
     }
 
     /**
@@ -238,8 +225,8 @@ abstract class AbstractCommentMapper implements
             }
 
             $num    = $this->loadChildCommentRows(array($originKey));
-            $offset = $this->getCommentRowOffset($startKey2, $isChild);
-            $num -= ((int) $offset + 1);
+            $offset = $this->commentDataList->getOffset($startKey2);
+            $num -= ($offset + 1);
 
             $startKey2 = $originKey - 1;
             $count     = $count > $num ? $count - $num : 0;
@@ -392,62 +379,31 @@ abstract class AbstractCommentMapper implements
      */
     protected function loadComments($startKey, $length)
     {
-        if (!isset($this->rowList[$startKey])) {
-            throw new InvalidArgumentException(sprintf(
-                'Cannot find comment row node with key: %d', $startKey));
-        }
+        $this->commentDataList->setIterationContext($startKey, $length);
 
-        $node     = $this->rowList[$startKey];
-        $comments = array();
-        for ($i = 0; $i < $length; $i++) {
-            if (null === $node) {
-                break;
+        $loadedComments = array();
+        $resultComments = array();
+        foreach ($this->commentDataList as $key => $data) {
+            $comment = clone $this->getCommentManager()->getCommentPrototype();
+            $comment->load($data)
+                ->setKey($data['id']);
+            if (isset($data['parent_id'])) {
+                $comment->markChildFlag()
+                    ->setParentKey($data['parent_id'])
+                    ->setOriginKey($data['origin_id'])
+                    ->setLevel($data['level']);
             }
 
-            $comment = $this->getComment($node);
-            if (
-                !$node->isChild
-                || $comment->getKey() === $startKey
-                || !isset($this->rowList[$comment->getParentKey()])
-            ) {
-                $comments[] = $comment;
+            if ($comment->isChild() && isset($loadedComments[$key])) {
+                $loadedComments[$key]->addChild($comment);
             } else {
-                $parentComment = $this->getComment(
-                    $this->rowList[$comment->getParentKey()]);
-                $parentComment->addChild($comment);
+                $resultComments[$key] = $comment;
             }
 
-            $node = $node->next;
+            $loadedComments[$key] = $comment;
         }
 
-        return $comments;
-    }
-
-    /**
-     * Get a comment object from comment row list
-     *
-     * @param  stdClass node The node of comment row
-     * @return CommentInterface
-     * @throws InvalidArgumentException If the provided argument is not key or node
-     */
-    protected function getComment(stdClass $node)
-    {
-        if ($node->data instanceof CommentInterface) {
-            return $node->data;
-        }
-
-        $comment = clone $this->getCommentManager()->getCommentPrototype();
-        $comment->load($node->data)
-            ->setKey($node->data['id']);
-        if ($node->isChild) {
-            $comment->setLevel($node->data['level'])
-                ->setParentKey($node->data['parent_id'])
-                ->setOriginKey($node->data['origin_id'])
-                ->markChildFlag();
-        }
-        $node->data = $comment;
-
-        return $comment;
+        return $resultComments;
     }
 
     /**
@@ -480,7 +436,7 @@ abstract class AbstractCommentMapper implements
         $leftCount  = $count;
         $originKeys = array();
         while ($leftCount > 0 && $row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $this->insertCommentRow($row);
+            $this->commentDataList->insert($row);
             $leftCount--;
 
             if ($childCount > 0) {
@@ -532,102 +488,10 @@ abstract class AbstractCommentMapper implements
 
         $count = 0;
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $this->insertCommentRow($row);
+            $this->commentDataList->insert($row);
             $count++;
         }
         return $count;
-    }
-
-    /**
-     * Get a comment row offset in comment row list
-     *
-     * @param  int key The comment row key
-     * @param  bool isChild Whether the key comment is child
-     * @return false|int
-     */
-    protected function getCommentRowOffset($key, $isChild)
-    {
-        if (!isset($this->rowList[$key])) {
-            return false;
-        }
-
-        $node  = $this->rowList[$key];
-        $count = 1;
-        while ($this->rear !== $node) {
-            $node = $node->next;
-            $count++;
-        }
-
-        return $this->length - $count;
-    }
-
-    /**
-     * Insert a comment data row into comment row list
-     *
-     * @todo   Seperate the comment row list data structure into a class
-     * @param  array row
-     * @return self
-     * @throws LogicException If child comment row dose not have same origin key
-     */
-    protected function insertCommentRow(array $row)
-    {
-        $isChild = !isset($row['child_count']);
-        $key = $row['id'];
-        if (!$isChild || !isset($this->rowList[$row['parent_id']])) {
-            $node = new stdClass();
-            $node->data    = $row;
-            $node->next    = null;
-            $node->isChild = $isChild;
-
-            if (isset($this->rear)) {
-                $this->rear->next = $node;
-            }
-            $this->rear = $node;
-            $this->rowList[$key] = $node;
-        } else {
-            $level     = $row['level'];
-            $parentKey = $row['parent_id'];
-            $originKey = $row['origin_id'];
-
-            if (isset($this->rowList[$parentKey])) {
-                $prevNode = $this->rowList[$parentKey];
-            } else {
-                throw new LogicException('Cannot find previous node');
-            }
-            while (
-                $prevNode !== $this->rear
-                && $prevNode->next->isChild
-                && (!$prevNode->isChild || $level <= $prevNode->data['level'])
-            ) {
-                $prevNode = $prevNode->next;
-            }
-
-            $originKey2 = $prevNode->isChild
-                ? $prevNode->data['origin_id']
-                : $prevNode->data['id'];
-            if ($originKey !== $originKey2) {
-                throw new LogicException(sprintf(
-                    'Invalid child comment, origin key is not equal: %d != %d',
-                    $originKey,
-                    $originKey2));
-            }
-
-            $node = new stdClass();
-            $node->data    = $row;
-            $node->next    = $prevNode->next;
-            $node->isChild = true;
-
-            $prevNode->next = $node;
-
-            if ($prevNode === $this->rear) {
-                $this->rear = $node;
-            }
-            $this->rowList[$key] = $node;
-        }
-
-        $this->length++;
-
-        return $this;
     }
 
     /**
