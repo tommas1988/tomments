@@ -285,6 +285,39 @@ class AbstractCommentMapperTest extends \PHPUnit_Framework_TestCase
         $this->assertSame($expected, $this->pdoStub->getStatement(0));
     }
 
+    public function testCannotGetNextSearchKeyIfCommentsAreNotloaded()
+    {
+        $this->setExpectedException('LogicException', 'Comments have not load yet');
+        $this->mapper->getNextSearchKey();
+    }
+
+    public function testGetNextSearchKey()
+    {
+        $stmtStub = new PDOStatementStub();
+        $stmtStub->addResultSet($this->getOriginCommentResultSet(0, 10));
+        $stmtStub->addResultSet($this->getChildCommentResultSet([17, 19]));
+
+        $this->pdoStub->setPdoStatement($stmtStub);
+        $comments = $this->mapper->findComments(19, 10);
+
+        $expected = array(
+            'key'      => 9,
+            'is_child' => false,
+        );
+        $this->assertSame($expected, $this->mapper->getNextSearchKey());
+    }
+
+    public function testGetNextSearchKeyWithNoMoreComments()
+    {
+        $stmtStub = new PDOStatementStub();
+        $stmtStub->addResultSet($this->getChildCommentResultSet([19]));
+
+        $this->pdoStub->setPdoStatement($stmtStub);
+        $comments = $this->mapper->findComments(20, 10, 19);
+
+        $this->assertSame(null, $this->mapper->getNextSearchKey());
+    }
+
     protected function getCommentResultArray($data)
     {
         if (is_null($data['origin_id'])) {

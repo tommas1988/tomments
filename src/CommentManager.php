@@ -50,7 +50,17 @@ class CommentManager
      */
     public function getComments($startKey, $length, $originKey = null)
     {
-        return $this->commentMapper->findComments($startKey, $length, $originKey);
+        return $this->commentMapper->findComments(
+            $startKey, $length, $originKey);
+    }
+
+    /**
+     * Proxy of AbstractCommentMapper::getNextSearchKey
+     * @see AbstractCommentMapper::getNextSearchKey
+     */
+    public function getNextSearchKey()
+    {
+        return $this->commentMapper->getNextSearchKey();
     }
 
     /**

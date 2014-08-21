@@ -137,6 +137,31 @@ class CommentDataList implements Iterator
     }
 
     /**
+     * Get next comment key info for the given comment key
+     *
+     * @param  int key The current comment key
+     * @return array|null
+     * @throws InvalidArgumentException If provided comment key is not set
+     */
+    public function getNextCommentKey($key)
+    {
+        if (!isset($this->nodes[$key])) {
+            throw new InvalidArgumentException(sprintf(
+                'The comment data: %s is not loaded', $key));
+        }
+
+        $node = $this->nodes[$key];
+        if ($node->next) {
+            return array(
+                'key'      => $node->next->key,
+                'is_child' => $node->next->isChild,
+            );
+        } else {
+            return null;
+        }
+    }
+
+    /**
      * Set iteration context
      *
      * @param  int start The key of comment data to start the iteration
@@ -188,7 +213,7 @@ class CommentDataList implements Iterator
     public function next()
     {
         $this->current = $this->current->next;
-        $this->count++;
+        $this->count--;
     }
 
     /**
@@ -212,7 +237,7 @@ class CommentDataList implements Iterator
      */
     public function valid()
     {
-        return null !== $this->current && $this->count >= 0;
+        return $this->current && $this->count > 0;
     }
 }
 
