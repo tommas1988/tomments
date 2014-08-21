@@ -38,6 +38,12 @@ abstract class AbstractCommentMapper implements
     protected $commentDataList;
 
     /**
+     * The last load comment key
+     * @var int
+     */
+    protected $lastLoadCommentKey;
+
+    /**
      * Constructor
      *
      * @param  PDO db Database connection
@@ -95,7 +101,7 @@ abstract class AbstractCommentMapper implements
     }
 
     /**
-     * Find child comment statment
+     * Find child comment statement
      * Handy for test.
      *
      * @param  int originKeyCount The number of origin keys
@@ -117,7 +123,7 @@ abstract class AbstractCommentMapper implements
     }
 
     /**
-     * Insert comment statment
+     * Insert comment statement
      * Handy for test.
      *
      * @param bool isChild
@@ -217,7 +223,8 @@ abstract class AbstractCommentMapper implements
 
         $isChild   = $originKey ? true : false;
         $startKey2 = $startKey;
-        $count     = $length;
+        // Increment by one to be able getting the next search key
+        $count     = $length + 1;
         if ($isChild) {
             if (!is_int($originKey)) {
                 throw new InvalidArgumentException(
@@ -370,6 +377,25 @@ abstract class AbstractCommentMapper implements
     }
 
     /**
+     * Get next search start key
+     * When nextSearchKey is array, it contains key and is_child fields.
+     * When nextSearchKey is bool, it can only be false which means no more
+     * comment to find.
+     *
+     * @return array|null
+     * @throws LogicException If comments is not loaded yet
+     */
+    public function getNextSearchKey()
+    {
+        if (is_null($this->lastLoadCommentKey)) {
+            throw new LogicException('Comments have not load yet');
+        }
+
+        return $this->commentDataList->getNextCommentKey(
+            $this->lastLoadCommentKey);
+    }
+
+    /**
      * Load comment objects from comment row list
      *
      * @param  int startKey The key start to load
@@ -402,6 +428,9 @@ abstract class AbstractCommentMapper implements
 
             $loadedComments[$key] = $comment;
         }
+
+        // set last load comment key
+        $this->lastLoadCommentKey = $key;
 
         return $resultComments;
     }
