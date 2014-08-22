@@ -88,6 +88,13 @@ interface CommentInterface
     public function getLevel();
 
     /**
+     * Get the comment target id
+     *
+     * @return int
+     */
+    public function getTargetId();
+
+    /**
      * Add a child comment
      *
      * @param  CommentInterface comment

@@ -9,6 +9,7 @@ use PDOStatement;
 use stdClass;
 use InvalidArgumentException;
 use LogicException;
+use RuntimeException;
 
 abstract class AbstractCommentMapper implements
     CommentMapperInterface,
@@ -24,6 +25,12 @@ abstract class AbstractCommentMapper implements
      * @var PDO Database connection
      */
     protected $db;
+
+    /**
+     * Comment target column name
+     * @var string
+     */
+    protected $targetColumn;
 
     /**
      * Comment table name
@@ -47,17 +54,24 @@ abstract class AbstractCommentMapper implements
      * Constructor
      *
      * @param  PDO db Database connection
+     * @param  string targetColumn Them comment target column name
      * @param  string tableName The comment table name
-     * @throws InvalidArgumentException If no field_name_mapper field in the config
+     * @throws LogicException If columnMapper isn`t set or is invalid
+     * @throws InvalidArgumentException If targetCoumn is not string
      */
-    public function __construct(PDO $db, $tableName = 'comment')
+    public function __construct(PDO $db, $targetColumn, $tableName = 'comment')
     {
         if (!isset($this->columnMapper) || !is_array($this->columnMapper)) {
             throw new LogicException(
                 'colmnMapper must be defined by subclass');
         }
+        if (!is_string($targetColumn)) {
+            throw new InvalidArgumentException(sprintf(
+                'Invalid comment target column name: %s', $targetColumn));
+        }
 
         $this->db              = $db;
+        $this->targetColumn    = $targetColumn;
         $this->tableName       = $tableName;
         $this->commentDataList = new CommentDataList();
     }
@@ -95,7 +109,8 @@ abstract class AbstractCommentMapper implements
         $sql = 'SELECT id, child_count, '
             . implode(', ', $this->columnMapper)
             . ' FROM ' . $this->tableName
-            . ' WHERE id <= ? LIMIT ? ORDER BY DESC';
+            . ' WHERE id <= ? AND ' . $this->targetColumn
+            . ' = ? LIMIT ? ORDER BY DESC';
 
         return $sql;
     }
@@ -123,6 +138,19 @@ abstract class AbstractCommentMapper implements
     }
 
     /**
+     * Get search key statement
+     * Handy for test.
+     *
+     * @return string
+     */
+    public function getSearchKeyStatement()
+    {
+        $sql = 'SELECT MAX(id) FROM ' . $this->tableName
+            . ' WHERE ' . $this->targetColumn . ' = ? AND level = ?';
+        return $sql;
+    }
+
+    /**
      * Insert comment statement
      * Handy for test.
      *
@@ -131,17 +159,21 @@ abstract class AbstractCommentMapper implements
      */
     public function insertCommentStatement($isChild = false)
     {
-        $sql = 'INSERT INTO ' . $this->tableName;
+        $sql = 'INSERT INTO ' . $this->tableName . ' (level, ';
         if ($isChild) {
-            $sql .= ' (level, parent_id, origin_id, ';
-            $columnCount = 3 + count($this->columnMapper);
+            $sql .= 'parent_id, origin_id, ';
+            $columnCount = 3;
         } else {
-            $sql .= ' (child_count, ';
-            $columnCount = 1 + count($this->columnMapper);
+            $sql .= 'child_count, ';
+            $columnCount = 2;
         }
+
+        $sql .= $this->targetColumn . ', ';
+        $columnCount += count($this->columnMapper);
 
         $sql .= implode(', ', $this->columnMapper) . ') VALUES (';
         for ($i = 1; $i < $columnCount; $i++) {
+
             $sql .= '?, ';
         }
         $sql .= '?)';
@@ -207,43 +239,79 @@ abstract class AbstractCommentMapper implements
     /**
      * Find comments
      * @see CommentMapperInterface::findComments
-     * @throws InvalidArgumentException If startKey is not int
+     * @throws InvalidArgumentException If target id is not int
+     * @throws InvalidArgumentException If searchKey is not int
      * @throws InvalidArgumentException If length is less than 1
      * @throws InvalidArgumentException If origin key is not int when provided
+     * @throws LogicException If search key is null but origin key isn`t
+     * @throws LogicException Encounter a sql error when getting search key
+     * @throws LogicException If cannot get search key when isn`t provided
      */
-    public function findComments($startKey, $length, $originKey = null)
-    {
-        if (!is_int($startKey)) {
+    public function findComments(
+        $targetId, $searchKey = null, $length = 10, $originKey = null
+    ) {
+        if (!is_int($targetId)) {
             throw new InvalidArgumentException(sprintf(
-                'Invalid start key: %s', $startKey));
+                'Invalid target id: %s', $targetId));
+        }
+        if (!is_int($searchKey)) {
+            throw new InvalidArgumentException(sprintf(
+                'Invalid search key: %s', var_export($searchKey, 1)));
         }
         if (!is_int($length) || $length < 1) {
             throw new InvalidArgumentException('Length must be greater than 0');
         }
+        if (!$originKey && !is_int($originKey)) {
+            throw new InvalidArgumentException(sprintf(
+                'Invalid origin key: %s', var_export($originKey, 1)));
+        }
 
-        $isChild   = $originKey ? true : false;
-        $startKey2 = $startKey;
-        // Increment by one to be able getting the next search key
-        $count     = $length + 1;
-        if ($isChild) {
-            if (!is_int($originKey)) {
-                throw new InvalidArgumentException(
-                    'Invalid origin key: ' . $originKey);
+        $isChild = $originKey ? true : false;
+        if ($isChild && !$searchKey) {
+            throw new LogicException(
+                'Search from the origin comment when search key is not provided');
+        }
+
+        $this->db->beginTransaction();
+
+        if (!$searchKey) {
+            $stmt = $this->db->prepare($this->getSearchKeyStatement());
+            $stmt->bindValue(":{$this->targetColumn}", $targetId);
+            $stmt->bindValue(':level', 0);
+
+            if (!$stmt->execute()) {
+                $this->error('Cannot get search key', $stmt);
+                throw new LogicException('Cannot get search key');
             }
 
+            $result = $this->fetch(PDO::FETCH_NUM);
+            if (empty($result)) {
+                $this->db->rollBack();
+                throw new LogicException(sprintf(
+                    'Cannot get search key with targetId: %d', $targetId));
+            }
+            $searchKey = $result[0];
+        }
+
+        $searchKey2 = $searchKey;
+        // Increment by one to be able getting the next search key
+        $count      = $length + 1;
+        if ($isChild) {
             $num    = $this->loadChildCommentRows(array($originKey));
-            $offset = $this->commentDataList->getOffset($startKey2);
+            $offset = $this->commentDataList->getOffset($searchKey2);
             $num -= ($offset + 1);
 
-            $startKey2 = $originKey - 1;
-            $count     = $count > $num ? $count - $num : 0;
+            $searchKey2 = $originKey - 1;
+            $count      = $count > $num ? $count - $num : 0;
         }
 
         if ($count > 0) {
-            $this->loadCommentRows($startKey2, $count);
+            $this->loadCommentRows($searchKey2, $count);
         }
 
-        return $this->loadComments($startKey, $length, $isChild);
+        $this->db->commit();
+
+        return $this->loadComments($searchKey, $length, $isChild);
     }
 
     /**
@@ -260,10 +328,11 @@ abstract class AbstractCommentMapper implements
             $stmt->bindValue(1, $comment->getOriginKey(), PDO::PARAM_INT);
 
             if (!$stmt->execute()) {
-                $this->db->rollBack();
                 $this->error(
-                    'Cannot increment child_count with comment :%d',
-                    $comment->getOriginKey());
+                    sprintf('Cannot increment child_count with comment :%d',
+                        $comment->getOriginKey()),
+                    null,
+                    false);
 
                 return false;
             }
@@ -282,12 +351,14 @@ abstract class AbstractCommentMapper implements
             $stmt->bindValue(
                 ':origin_id', $comment->getOriginKey(), PDO::PARAM_INT);
         } else {
+            $stmt->bindValue(':level', 0, PDO::PARAM_INT);
             $stmt->bindValue(':child_count', 0, PDO::PARAM_INT);
         }
+        $stmt->bindValue(
+            ":{$this->targetColumn}", $comment->getTargetId(), PDO::PARAM_INT);
 
         if (!$stmt->execute()) {
-            $this->db->rollBack();
-            $this->error('Cannot insert a comment', $stmt);
+            $this->error('Cannot insert a comment', $stmt, false);
             return false;
         }
 
@@ -337,9 +408,10 @@ abstract class AbstractCommentMapper implements
         $stmt->bindValue(':id', $comment->getKey(), PDO::PARAM_INT);
 
         if (!$stmt->execute()) {
-            $this->db->rollBack();
             $this->error(
-                'Cannot update comment: %d', $comment->getKey(), $stmt);
+                sprintf('Cannot update comment: %d', $comment->getKey()),
+                $stmt,
+                false);
 
             return false;
         }
@@ -367,8 +439,8 @@ abstract class AbstractCommentMapper implements
         }
 
         if (!$stmt->execute()) {
-            $this->db->rollBack();
-            $this->error('Cannot delete comment: %d', $key, $stmt);
+            $this->error(
+                sprintf('Cannot delete comment: %d', $key), $stmt, false);
             return false;
         }
 
@@ -377,7 +449,7 @@ abstract class AbstractCommentMapper implements
     }
 
     /**
-     * Get next search start key
+     * Get next search key
      * When nextSearchKey is array, it contains key and is_child fields.
      * When nextSearchKey is bool, it can only be false which means no more
      * comment to find.
@@ -398,14 +470,14 @@ abstract class AbstractCommentMapper implements
     /**
      * Load comment objects from comment row list
      *
-     * @param  int startKey The key start to load
+     * @param  int searchKey The key start to load
      * @param  int length The length of comment to be loaded
      * @return CommentInterface[]
-     * @throws InvalidArgumentException If cannot find comment row node with start key
+     * @throws InvalidArgumentException If cannot find comment row node with search key
      */
-    protected function loadComments($startKey, $length)
+    protected function loadComments($searchKey, $length)
     {
-        $this->commentDataList->setIterationContext($startKey, $length);
+        $this->commentDataList->setIterationContext($searchKey, $length);
 
         $loadedComments = array();
         $resultComments = array();
@@ -438,16 +510,16 @@ abstract class AbstractCommentMapper implements
     /**
      * Load comment row from database
      *
-     * @param  int startKey The comment key start to search
+     * @param  int searchKey The comment key start to search
      * @param  int count The number of comment row to load
-     * @return int The number of actual loaded comment row
+     * @return bool|int The number of actual loaded comment row
      * @throws LogicException If cannot bind with id column
      * @throws LogicException If cannot bind with child_count column
      */
-    protected function loadCommentRows($startKey, $count)
+    protected function loadCommentRows($searchKey, $count)
     {
         $stmt = $this->db->prepare($this->findOriginCommentStatement());
-        $stmt->bindValue(1, $startKey, PDO::PARAM_INT);
+        $stmt->bindValue(1, $searchKey, PDO::PARAM_INT);
         $stmt->bindValue(2, $count, PDO::PARAM_INT);
 
         if (!$stmt->execute()) {
@@ -455,9 +527,11 @@ abstract class AbstractCommentMapper implements
         }
 
         if (!$stmt->bindColumn('id', $key, PDO::PARAM_INT)) {
+            $this->db->rollBack();
             throw new LogicException('Can not bind with id column');
         }
         if (!$stmt->bindColumn('child_count', $childCount, PDO::PARAM_INT)) {
+            $this->db->rollBack();
             throw new LogicException(
                 'Can not bind with child_count column');
         }
@@ -500,18 +574,22 @@ abstract class AbstractCommentMapper implements
         }
 
         if (!$stmt->execute()) {
-            $this->error('Cannot execute find child comment statement');
+            $this->error('Cannot execute find child comment statement', $stmt);
         }
         if (!$stmt->bindColumn('id', $key)) {
+            $this->db->rollBack();
             throw new LogicException('Cannot bind with id column');
         }
         if (!$stmt->bindColumn('level', $level)){
+            $this->db->rollBack();
             throw new LogicException('Cannot bind with level column');
         }
         if (!$stmt->bindColumn('parent_id', $parentKey)) {
+            $this->db->rollBack();
             throw new LogicException('Cannot bind with parent_id column');
         }
         if (!$stmt->bindColumn('origin_id', $originKey)) {
+            $this->db->rollBack();
             throw new LogicException('Cannot bind with origin_id column');
         }
 
@@ -527,12 +605,17 @@ abstract class AbstractCommentMapper implements
      * Sql execute error
      *
      * @param  string message Error message
-     * @param  array args The message args
      * @param  PDOStatement stmt
-     * @throws LogicException
+     * @param  bool throwException Whether throw a exception
+     * @throws RuntimeException
      */
-    protected function error($message, array $args = null, PDOStatement $stmt)
+    protected function error(
+        $message, PDOStatement $stmt = null, $throwException = true)
     {
+        if ($this->db->inTransaction()) {
+            $this->db->rollBack();
+        }
+
         $errorInfo = array(
             'database'  => $this->db->errorInfo(),
         );
@@ -541,13 +624,14 @@ abstract class AbstractCommentMapper implements
             $errorInfo['statment'] = $stmt->errorInfo();
         }
 
-        array_unshift($message);
-        $message = call_user_func_array('sprintf', $args);
-
         error_log(sprintf(
             'Error message: %s, Sql error: %s',
             $message,
             var_export($errorInfo, 1)
         ));
+
+        if ($throwException) {
+            throw new RuntimeException($message);
+        }
     }
 }
