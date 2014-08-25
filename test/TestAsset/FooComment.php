@@ -5,6 +5,7 @@ use Tomments\Comment\AbstractComment;
 
 class FooComment extends AbstractComment
 {
+    public $targetId;
     public $text = 'comment text';
     public $date = '00:00:00';
 
@@ -13,6 +14,17 @@ class FooComment extends AbstractComment
     protected function doLoad(array $params)
     {
         $this->params = $params;
+    }
+
+    public function getTargetId()
+    {
+        return $this->targetId;
+    }
+
+    public function setTargetId($targetId)
+    {
+        $this->targetId = $targetId;
+        return $this;
     }
 
     public function toArray()

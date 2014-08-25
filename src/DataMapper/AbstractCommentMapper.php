@@ -169,7 +169,7 @@ abstract class AbstractCommentMapper implements
         }
 
         $sql .= $this->targetColumn . ', ';
-        $columnCount += count($this->columnMapper);
+        $columnCount += (1 + count($this->columnMapper));
 
         $sql .= implode(', ', $this->columnMapper) . ') VALUES (';
         for ($i = 1; $i < $columnCount; $i++) {
@@ -261,7 +261,7 @@ abstract class AbstractCommentMapper implements
         if (!is_int($length) || $length < 1) {
             throw new InvalidArgumentException('Length must be greater than 0');
         }
-        if (!$originKey && !is_int($originKey)) {
+        if ($originKey && !is_int($originKey)) {
             throw new InvalidArgumentException(sprintf(
                 'Invalid origin key: %s', var_export($originKey, 1)));
         }
