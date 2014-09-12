@@ -53,26 +53,64 @@ abstract class AbstractCommentMapper implements
     /**
      * Constructor
      *
-     * @param  PDO db Database connection
-     * @param  string targetColumn Them comment target column name
-     * @param  string tableName The comment table name
+     * @param  array config Mapper configuration
      * @throws LogicException If columnMapper isn`t set or is invalid
-     * @throws InvalidArgumentException If targetCoumn is not string
+     * @throws DomainException If required configuration field is not provided
+     * @throws RuntimeException If cannot create a db connection
+     * @throws InvalidArgumentException If targetCoumn is invalid
+     * @thrwos InvalidArgumentException If the provided table name is invalid
      */
-    public function __construct(PDO $db, $targetColumn, $tableName = 'comment')
+    public function __construct(array $config)
     {
         if (!isset($this->columnMapper) || !is_array($this->columnMapper)) {
             throw new LogicException(
                 'colmnMapper must be defined by subclass');
         }
-        if (!is_string($targetColumn)) {
-            throw new InvalidArgumentException(sprintf(
-                'Invalid comment target column name: %s', $targetColumn));
+
+        if (!isset($config['db'], $config['target-column'])) {
+            throw new DomainException(sprintf(
+                'Missing required configuration', var_export($config, true)));
         }
 
-        $this->db              = $db;
-        $this->targetColumn    = $targetColumn;
-        $this->tableName       = $tableName;
+        $dbConfig = $config['db'];
+        if (
+            is_array($dbConfig)
+            && isset($dbConfig['dsn'], $dbConfig['username'], $dbConfig['password'])
+        ) {
+            try {
+                $pdo = new PDO($dbConfig['dsn'], $dbConfig['username'], $dbConfig['password']);
+            } catch (\Exception $e) {
+                throw new RuntimeException('Cannot connect with database');
+            }
+
+            $this->db = $pdo;
+        } elseif ($dbConfig instanceof PDO) {
+            $this->db = $dbConfig;
+        } else {
+            throw new InvalidArgumentException(sprintf(
+                'Invalid db config: %s', var_export($dbConfig, true)));
+        }
+
+        if (
+            !is_string($config['target-column'])
+            || !ctype_alpha($config['target-column'])
+        ) {
+            throw new InvalidArgumentException(sprintf(
+                'Invalid comment target column name: %s', $config['target-column']));
+        }
+        $this->targetColumn = $config['target-column'];
+
+        if (isset($config['table-name'])) {
+            $tableName = $config['table-name'];
+            if (!is_string($tableName) || !ctype_alpha($tableName)) {
+                throw new InvalidArgumentException(sprintg(
+                    'Invalid table name: %s', $tableName));
+            }
+        } else {
+            $tableName = 'comment';
+        }
+        $this->tableName = $tableName;
+
         $this->commentDataList = new CommentDataList();
     }
 

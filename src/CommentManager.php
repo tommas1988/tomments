@@ -3,6 +3,7 @@ namespace Tomments;
 
 use Tomments\DataMapper\CommentMapperInterface;
 use Tomments\Comment\CommentInterface;
+use LogicException;
 use InvalidArgumentException;
 use DomainException;
 
@@ -23,19 +24,44 @@ class CommentManager
     /**
      * Constructor
      *
-     * @param CommentMapperInterface commentMapper The comment data mapper
-     * @param CommentInterface commentPrototype The commentPrototype
+     * @param  array config Tomments configuration
+     * @throws DomainException If required configuration is not provided
+     * @throws InvalidArgumentException If comment config field is invalid
+     * @throws InvalidArgumentException If mapper config filed is invalid
      */
-    public function __construct(
-        CommentMapperInterface $commentMapper,
-        CommentInterface $commentPrototype
-    ) {
+    public function __construct(array $config)
+    {
+        if (!isset($config['comment'], $config['mapper'])) {
+            throw new DomainException(sprintf(
+                'Missing required configuration: %s', var_export($config, true)));
+        }
+
+        if (is_string($config['comment'])) {
+            $this->commentPrototype = new $config['comment']();
+        } elseif ($config['comment'] instanceof CommentInterface) {
+            $this->commentPrototype = $config['comment'];
+        } else {
+            throw new InvalidArgumentException(sprintf(
+                'Invalid comment: %s', var_export($config['comment'], true)));
+        }
+
+        if (is_array($config['mapper']) && isset($config['mapper']['class'])) {
+            $mapperConfig = isset($config['mapper']['config'])
+                ? $config['mapper']['config']
+                : array();
+            $commentMapper = new $config['mapper']['class']($mapperConfig);
+        } elseif ($config['mapper'] instanceof CommentMapperInterface) {
+            $commentMapper = $config['mapper'];
+        } else {
+            throw new InvalidArgumentException(sprintf(
+                'Invalid mapper: %s', var_export($config['mapper'], true)));
+        }
+
         if ($commentMapper instanceof InjectCommentManagerInterface) {
             $commentMapper->setCommentManager($this);
         }
 
-        $this->commentMapper    = $commentMapper;
-        $this->commentPrototype = $commentPrototype;
+        $this->commentMapper = $commentMapper;
     }
 
     /**
