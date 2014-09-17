@@ -67,9 +67,9 @@ class AbstractCommentMapperTest extends \PHPUnit_Framework_TestCase
     {
         $this->setExpectedException(
             'InvalidArgumentException',
-            'Invalid start key: start-key');
+            'Invalid search key: \'search-key\'');
 
-        $this->mapper->findComments('start-key', 1);
+        $this->mapper->findComments(1, 'search-key', 1);
     }
 
     public function testFindCommentsWithInvalidLength()
@@ -77,21 +77,21 @@ class AbstractCommentMapperTest extends \PHPUnit_Framework_TestCase
         $this->setExpectedException(
             'InvalidArgumentException',
             'Length must be greater than 0');
-        $this->mapper->findComments(1, 0);
+        $this->mapper->findComments(1, 1, 0);
 
         $this->setExpectedException(
             'InvalidArgumentException',
             'Length must be greater than 0');
-        $this->mapper->findComments(1, 'invalid-length');
+        $this->mapper->findComments(1, 1, 'invalid-length');
     }
 
     public function testFindCommentsWithInvalidOriginKey()
     {
         $this->setExpectedException(
             'InvalidArgumentException',
-            'Invalid origin key: origin-key');
+            'Invalid origin key: \'origin-key\'');
 
-        $this->mapper->findComments(1, 1, 'origin-key');
+        $this->mapper->findComments(1, 1, 1, 'origin-key');
     }
 
     public function testFindCommentsWithChildStartKey()
@@ -103,7 +103,7 @@ class AbstractCommentMapperTest extends \PHPUnit_Framework_TestCase
 
         $this->pdoStub->setPdoStatement($stmtStub);
 
-        $comments = $this->mapper->findComments(21, 10, 19);
+        $comments = $this->mapper->findComments(1, 21, 10, 19);
 
         $expected = 'SELECT id, level, parent_id, origin_id, text, date '
             . 'FROM comment '
@@ -112,7 +112,7 @@ class AbstractCommentMapperTest extends \PHPUnit_Framework_TestCase
 
         $expected = 'SELECT id, child_count, text, date '
             . 'FROM comment '
-            . 'WHERE id <= ? LIMIT ? ORDER BY DESC';
+            . 'WHERE id <= ? AND target_id = ? LIMIT ? ORDER BY DESC';
         $this->assertSame($expected, $this->pdoStub->getStatement(1));
 
         $expected = 'SELECT id, level, parent_id, origin_id, text, date '
@@ -149,11 +149,11 @@ class AbstractCommentMapperTest extends \PHPUnit_Framework_TestCase
 
         $this->pdoStub->setPdoStatement($stmtStub);
 
-        $comments = $this->mapper->findComments(19, 10);
+        $comments = $this->mapper->findComments(1, 19, 10);
 
         $expected = 'SELECT id, child_count, text, date '
             . 'FROM comment '
-            . 'WHERE id <= ? LIMIT ? ORDER BY DESC';
+            . 'WHERE id <= ? AND target_id = ? LIMIT ? ORDER BY DESC';
         $this->assertSame($expected, $this->pdoStub->getStatement(0));
 
         $expected = 'SELECT id, level, parent_id, origin_id, text, date '
@@ -197,9 +197,9 @@ class AbstractCommentMapperTest extends \PHPUnit_Framework_TestCase
         $this->assertSame($expected, $this->pdoStub->getStatement(0));
 
         $expected = 'INSERT INTO comment '
-            . '(level, parent_id, origin_id, text, date) '
+            . '(level, parent_id, origin_id, target_id, text, date) '
             . 'VALUES '
-            . '(?, ?, ?, ?, ?)';
+            . '(?, ?, ?, ?, ?, ?)';
         $this->assertSame($expected, $this->pdoStub->getStatement(1));
     }
 
@@ -211,9 +211,9 @@ class AbstractCommentMapperTest extends \PHPUnit_Framework_TestCase
         $this->assertTrue($this->mapper->insert($comment));
 
         $expected = 'INSERT INTO comment '
-            . '(child_count, text, date) '
+            . '(level, child_count, target_id, text, date) '
             . 'VALUES '
-            . '(?, ?, ?)';
+            . '(?, ?, ?, ?, ?)';
         $this->assertSame($expected, $this->pdoStub->getStatement(0));
     }
 
@@ -298,7 +298,7 @@ class AbstractCommentMapperTest extends \PHPUnit_Framework_TestCase
         $stmtStub->addResultSet($this->getChildCommentResultSet([17, 19]));
 
         $this->pdoStub->setPdoStatement($stmtStub);
-        $comments = $this->mapper->findComments(19, 10);
+        $comments = $this->mapper->findComments(1, 19, 10);
 
         $expected = array(
             'key'      => 9,
@@ -313,7 +313,7 @@ class AbstractCommentMapperTest extends \PHPUnit_Framework_TestCase
         $stmtStub->addResultSet($this->getChildCommentResultSet([19]));
 
         $this->pdoStub->setPdoStatement($stmtStub);
-        $comments = $this->mapper->findComments(20, 10, 19);
+        $comments = $this->mapper->findComments(1, 20, 10, 19);
 
         $this->assertSame(null, $this->mapper->getNextSearchKey());
     }

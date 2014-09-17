@@ -41,17 +41,19 @@ class CommentManager
     /**
      * Get commmnts
      *
-     * @param  int startKey The key that start searching with
+     * @param  int tartgetId The comment target id
+     * @param  int searchKey The key that start searching with
      * @param  int length The number of comments that need to return
      * @param  bool isChild If the startKey map to a child comment
      * @param  int|null originKey The origin comment key of this child comment
      * @return array
-     * @throws InvalidArgumentException If originKey is null and isChild is set to true
+     * @throws LogicException If cannot get search key when isn`t provided
      */
-    public function getComments($startKey, $length, $originKey = null)
-    {
+    public function getComments(
+        $targetId, $searchKey = null, $length = 10, $originKey = null
+    ) {
         return $this->commentMapper->findComments(
-            $startKey, $length, $originKey);
+            $targetId, $searchKey, $length, $originKey);
     }
 
     /**
