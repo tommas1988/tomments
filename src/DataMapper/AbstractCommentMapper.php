@@ -10,6 +10,7 @@ use stdClass;
 use InvalidArgumentException;
 use LogicException;
 use RuntimeException;
+use DomainException;
 
 abstract class AbstractCommentMapper implements
     CommentMapperInterface,
@@ -93,7 +94,7 @@ abstract class AbstractCommentMapper implements
 
         if (
             !is_string($config['target-column'])
-            || !ctype_alpha($config['target-column'])
+            && !ctype_alpha($config['target-column'])
         ) {
             throw new InvalidArgumentException(sprintf(
                 'Invalid comment target column name: %s', $config['target-column']));

@@ -16,8 +16,10 @@ class CommentManagerTest extends \PHPUnit_Framework_TestCase
             ->disableOriginalConstructor()
             ->getMock();
 
-        $this->manager = new CommentManager(
-            $this->mapperStub, new FooComment());
+        $this->manager = new CommentManager(array(
+            'comment' => new FooComment(),
+            'mapper'  => $this->mapperStub,
+        ));
     }
 
     public function testGetComments()

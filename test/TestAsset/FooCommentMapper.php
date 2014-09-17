@@ -23,7 +23,10 @@ class FooCommentMapper extends AbstractCommentMapper
             );
         }
 
-        parent::__construct($db, 'target_id');
+        parent::__construct(array(
+            'db'            => $db,
+            'target-column' => 'target_id',
+        ));
     }
 
     public function setUpdatableColumnMapper(array $columnMapper)
