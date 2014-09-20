@@ -3,6 +3,7 @@ namespace Tomments;
 
 use Tomments\DataMapper\CommentMapperInterface;
 use Tomments\Comment\CommentInterface;
+use LogicException;
 use InvalidArgumentException;
 use DomainException;
 
@@ -23,19 +24,18 @@ class CommentManager
     /**
      * Constructor
      *
-     * @param CommentMapperInterface commentMapper The comment data mapper
-     * @param CommentInterface commentPrototype The commentPrototype
+     * @param  array config Tomments configuration
+     * @throws DomainException If required configuration is not provided
      */
-    public function __construct(
-        CommentMapperInterface $commentMapper,
-        CommentInterface $commentPrototype
-    ) {
-        if ($commentMapper instanceof InjectCommentManagerInterface) {
-            $commentMapper->setCommentManager($this);
+    public function __construct(array $config)
+    {
+        if (!isset($config['comment'], $config['mapper'])) {
+            throw new DomainException(sprintf(
+                'Missing required configuration: %s', var_export($config, true)));
         }
 
-        $this->commentMapper    = $commentMapper;
-        $this->commentPrototype = $commentPrototype;
+        $this->setCommentPrototype($config['comment']);
+        $this->setCommentMapper($config['mapper']);
     }
 
     /**
@@ -133,6 +133,27 @@ class CommentManager
     }
 
     /**
+     * Set comment prototype
+     *
+     * @param  string|CommentInterface comment The object or class of Comment
+     * @return self
+     * @throws InvalidArgumentException If comment is not array or Comment object
+     */
+    public function setCommentPrototype($comment)
+    {
+        if (is_string($comment)) {
+            $this->commentPrototype = new $comment();
+        } elseif ($comment instanceof CommentInterface) {
+            $this->commentPrototype = $comment;
+        } else {
+            throw new InvalidArgumentException(sprintf(
+                'Invalid comment: %s', var_export($comment, true)));
+        }
+
+        return $this;
+    }
+
+    /**
      * Get comment prototype
      *
      * @return CommentInterface
@@ -140,5 +161,42 @@ class CommentManager
     public function getCommentPrototype()
     {
         return $this->commentPrototype;
+    }
+
+    /**
+     * Set comment data mapper
+     *
+     * @param  array|CommentMapperInterface The CommentMapper object or CommentMapper class and it`s configuration
+     * @return self
+     * @throws InvalidArgumentException If commentMapper is not object or array
+     */
+    public function setCommentMapper($commentMapper)
+    {
+        if (is_array($commentMapper) && isset($commentMapper['class'])) {
+            $mapperConfig = isset($commentMapper['config'])
+                ? $commentMapper['config']
+                : array();
+            $commentMapper = new $commentMapper['class']($mapperConfig);
+        } elseif (!$commentMapper instanceof CommentMapperInterface) {
+            throw new InvalidArgumentException(sprintf(
+                'Invalid mapper: %s', var_export($commentMapper, true)));
+        }
+
+        if ($commentMapper instanceof InjectCommentManagerInterface) {
+            $commentMapper->setCommentManager($this);
+        }
+
+        $this->commentMapper = $commentMapper;
+        return $this;
+    }
+
+    /**
+     * Get comment data mapper
+     *
+     * @return CommentMapperInterface
+     */
+    public function getCommentMapper()
+    {
+        return $this->commentMapper;
     }
 }
