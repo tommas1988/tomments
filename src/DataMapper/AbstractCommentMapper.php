@@ -6,6 +6,7 @@ use Tomments\InjectCommentManagerInterface;
 use Tomments\Comment\CommentInterface;
 use PDO;
 use PDOStatement;
+use PDOException;
 use stdClass;
 use InvalidArgumentException;
 use LogicException;
@@ -78,9 +79,10 @@ abstract class AbstractCommentMapper implements
             is_array($dbConfig)
             && isset($dbConfig['dsn'], $dbConfig['username'], $dbConfig['password'])
         ) {
+            $options = isset($dbConfig['options']) ? $dbConfig['options'] : array();
             try {
-                $pdo = new PDO($dbConfig['dsn'], $dbConfig['username'], $dbConfig['password']);
-            } catch (\Exception $e) {
+                $pdo = new PDO($dbConfig['dsn'], $dbConfig['username'], $dbConfig['password'], $options);
+            } catch (PDOException $e) {
                 throw new RuntimeException('Cannot connect with database');
             }
 
