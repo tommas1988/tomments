@@ -1,3 +1,3 @@
 <?php
 // Edit comment example
-require 'init.php'
+require 'init.php';
