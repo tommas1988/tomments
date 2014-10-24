@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Tomments example">
+    <meta name="author" content="tommas">
+
+    <title>Tomments (Tommas Comment System)</title>
+
+    <!-- Bootstrap core CSS -->
+    <link href="assets/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Custom styles for this template -->
+    <link href="assets/css/tomments.css" rel="stylesheet">
+
+    <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+    <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+    <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <![endif]-->
+  </head>
+
+  <body>
+
+    <div class="container">
+
+      <h1>Tomments Example</h1>
+
+      <div id="prototype">
+        <div class="comment">
+          <input type="hidden" name="key" />
+          <input type="hidden" name="level" />
+          <input type="hidden" name="originKey" />
+          <div class="time"></div>
+          <p></p>
+          <hr \>
+          <div class="add-comment" style="display:none">
+            <textarea cols="70" rows="7"></textarea>
+            <div>
+              <a href="javascript:void(0)" class="submit"></a>
+              <a href="javascript:void(0)" class="cancel">Cancel</a>
+            </div>
+          </div>
+          <div class="operation">
+            <a href="javascript:void(0)" class="reply">Reply</a> |
+            <a href="javascript:void(0)" class="edit">Edit</a> |
+            <a href="javascript:void(0)" class="delete">Delete</a>
+          </div>
+        </div>
+      </div>
+
+      <div id="container" class="comments"></div>
+
+      <div class="add-comment-box">
+        <textarea cols="70" rows="7"></textarea>
+        <div class="add_comment">
+          <a href="javascript:void(0)" onclick="addComment()">Add Comment</a>
+        </div>
+      </div>
+
+      <div class="more">
+        <input type="hidden" name="targetId" id="targetId" value="1" />
+        <input type="hidden" name="length" id="length" value="10" />
+        <input type="hidden" name="searchKey" id="searchKey" value="-1" />
+        <input type="hidden" name="originKey" id="originKey" value="-1" />
+        <h3>
+          <a id="load" href="javascript:void(0)" onclick="loadComments()">More</a>
+        </h3>
+      </div>
+
+    </div><!-- /.container -->
+
+
+    <!-- Bootstrap core JavaScript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="assets/js/jquery-2.1.1.min.js"></script>
+    <script src="assets/bootstrap/js/bootstrap.min.js"></script>
+    <script type="text/javascript" src="assets/js/tomments.js"></script>
+    <script type="text/javascript">
+     $(function() {
+       $('#load').click();
+       $('#add-comment-box a').click(addComment);
+     });
+    </script>
+  </body>
+</html>

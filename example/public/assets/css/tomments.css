@@ -1,0 +1,49 @@
+.container {
+    width: 900px;
+}
+
+#prototype {
+    display: none;
+}
+
+.comments {
+    padding-top: 50px
+}
+
+.comments, .add-comment-box {
+    width: 700px;
+    margin: auto;
+}
+
+.comment {
+    clear: both;
+}
+
+.comment child {
+    padding-left: 30px;
+}
+
+.operation {
+    float: right;
+}
+
+.add-comment-box {
+    padding-top: 30px;
+    clear: both;
+}
+
+.add-comment-box textarea {
+    display: block;
+    margin: auto;
+}
+
+.add_comment {
+    float: right;
+    margin-right: 70px;
+}
+
+.more {
+    width: 100px;
+    margin: auto;
+    padding: 40px 0px;
+}

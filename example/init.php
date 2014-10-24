@@ -1,7 +1,7 @@
 <?php
 define('LIB_PATH', __DIR__ . '/../');
 
-require LIB_PATH . 'autoload/autolode.php';
+require LIB_PATH . 'autoload/autoloader.php';
 require LIB_PATH . 'example/tomments/Comment.php';
 require LIB_PATH . 'example/tomments/CommentMapper.php';
 

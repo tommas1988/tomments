@@ -12,16 +12,22 @@ abstract class AbstractComment implements CommentInterface
     protected $key;
 
     /**
-     * The comment level
-     * @var int
-     */
-    protected $level;
-
-    /**
      * The parent comment key when the comment is child
      * @var int
      */
     protected $parentKey;
+
+    /**
+     * The comment target id
+     * @var int
+     */
+    protected $targetId;
+
+    /**
+     * The comment level
+     * @var int
+     */
+    protected $level;
 
     /**
      * The origin comment key when the comment is child
@@ -52,6 +58,16 @@ abstract class AbstractComment implements CommentInterface
      */
     public function load(array $params)
     {
+        if (isset($params['level'])) {
+            $this->setLevel($params['level']);
+        }
+        if (isset($params['originKey'])) {
+            $this->setOriginKey($params['originKey']);
+        }
+        if (isset($params['targetId'])) {
+            $this->setTargetId($params['targetId']);
+        }
+
         $this->doLoad($params);
         return $this;
     }
@@ -62,12 +78,7 @@ abstract class AbstractComment implements CommentInterface
      */
     public function setKey($key)
     {
-        if (!is_int($key) && !ctype_digit($key)) {
-            throw new InvalidArgumentException(sprintf(
-                'Invalid key: %s', $key));
-        }
-
-        $this->key = (int) $key;
+        $this->key = self::parseInt($key);
         return $this;
     }
 
@@ -80,44 +91,12 @@ abstract class AbstractComment implements CommentInterface
     }
 
     /**
-     * @see    CommentInterface::setLevel
-     * @throws InvalidArgumentException If level is not integer
-     */
-    public function setLevel($level)
-    {
-        if (!is_int($level) && !ctype_digit($level)) {
-            throw new InvalidArgumentException(sprintf(
-                'Invalid level: %', $level));
-        }
-
-        $this->level = (int) $level;
-        if (!$this->isChild) {
-            $this->markChildFlag();
-        }
-
-        return $this;
-    }
-
-    /**
-     * @see CommentInterface::getLevel
-     */
-    public function getLevel()
-    {
-        return $this->getParam('level', 0);
-    }
-
-    /**
      * @see    CommentInterface::setParentkey
      * @throws InvalidArgumentException If parent key is not integer
      */
     public function setParentKey($parentKey)
     {
-        if (!is_int($parentKey) && !ctype_digit($parentKey)) {
-            throw new InvalidArgumentException(sprintf(
-                'Invalid parent key: %s', $parentKey));
-        }
-
-        $this->parentKey = (int) $parentKey;
+        $this->parentKey = self::parseInt($parentKey);
         if (!$this->isChild) {
             $this->markChildFlag();
         }
@@ -130,34 +109,7 @@ abstract class AbstractComment implements CommentInterface
      */
     public function getParentKey()
     {
-        return $this->getParam('parentKey');
-    }
-
-    /**
-     * @see    CommentInterface::setOriginkey
-     * @throws InvalidArgumentException If origin key is not integer
-     */
-    public function setOriginKey($originKey)
-    {
-        if (!is_int($originKey) && !ctype_digit($originKey)) {
-            throw new InvalidArgumentException(sprintf(
-                'Invalid origin key: %s', $originKey));
-        }
-
-        $this->originKey = (int) $originKey;
-        if (!$this->isChild) {
-            $this->markChildFlag();
-        }
-
-        return $this;
-    }
-
-    /**
-     * @see CommentInterface::getOriginkey
-     */
-    public function getOriginKey()
-    {
-        return $this->getParam('originKey');
+        return $this->getParam('parentKey', null);
     }
 
     /**
@@ -200,6 +152,100 @@ abstract class AbstractComment implements CommentInterface
     public function getChildren()
     {
         return $this->children;
+    }
+
+    /**
+     * Set comment target id
+     *
+     * @param int targetId comment target id
+     * @return self
+     * @throws InvalidArgumentException If target id is not int
+     */
+    public function setTargetId($targetId)
+    {
+        $this->targetId = self::parseInt($targetId);
+        return $this;
+    }
+
+    /**
+     * Get target id
+     *
+     * @return false|int
+     */
+    public function getTargetId()
+    {
+        return $this->getParam('targetId');
+    }
+
+    /**
+     * Set comment level
+     *
+     * @param  int level
+     * @return self
+     * @throws InvalidArgumentException If level is not integer
+     */
+    public function setLevel($level)
+    {
+        $this->level = self::parseInt($level);
+        if (!$this->isChild) {
+            $this->markChildFlag();
+        }
+
+        return $this;
+    }
+
+    /**
+     * Get comment level
+     *
+     * @return int
+     */
+    public function getLevel()
+    {
+        return $this->getParam('level', 0);
+    }
+
+    /**
+     * Set comment origin key
+     *
+     * @param originKey int The comment origin key
+     * @return self
+     * @throws InvalidArgumentException If origin key is not integer
+     */
+    public function setOriginKey($originKey)
+    {
+        $this->originKey = self::parseInt($originKey);
+        if (!$this->isChild) {
+            $this->markChildFlag();
+        }
+
+        return $this;
+    }
+
+    /**
+     * Get the comment origin key
+     *
+     * @return int|null
+     */
+    public function getOriginKey()
+    {
+        return $this->getParam('originKey', null);
+    }
+
+    /**
+     * Parse int value
+     *
+     * @param  mix value The value need to be parsed
+     * @return int
+     * @throws InvalidArgumentException If value is not int string or integer
+     */
+    public static function parseInt($value)
+    {
+        if (!is_int($value) && !ctype_digit($value)) {
+            throw new InvalidArgumentException(sprintf(
+                'Invalid origin key: %s', $value));
+        }
+
+        return (int) $value;
     }
 
     /**

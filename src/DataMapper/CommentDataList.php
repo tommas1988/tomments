@@ -65,6 +65,16 @@ class CommentDataList implements Iterator
     }
 
     /**
+     * Whether the list is empty
+     *
+     * @return bool
+     */
+    public function isEmpty()
+    {
+        return 0 == $this->num;
+    }
+
+    /**
      * Insert a comment data to the list
      *
      * @param  array data Comment data
@@ -76,9 +86,47 @@ class CommentDataList implements Iterator
 
         $key       = $node->key;
         $parentKey = $node->parentKey;
+
+        /* Ascent order child comment */
+        // if (!$parentKey || !isset($this->nodes[$parentKey])) {
+        //     // If is origin comment data or parent comment data doesn`t
+        //     // set before, append the comment data to the list
+
+        //     if (!$this->head->next) {
+        //         $this->head->next = $this->rear = $node;
+        //     } else {
+        //         $this->rear->next = $node;
+        //         $this->rear       = $node;
+        //     }
+        // } else {
+        //     $originKey = $node->originKey;
+        //     $level     = $node->level;
+
+        //     $prevNode = $this->nodes[$parentKey];
+        //     while (
+        //         $prevNode !== $this->rear
+        //         && $originKey === $prevNode->next->originKey
+        //         && ($prevNode->next->key === $node->parentKey
+        //         || $prevNode->next->key !== $node->parentKey && $level <= $prevNode->next->level)
+        //     ) {
+        //         $prevNode = $prevNode->next;
+        //     }
+        //     $node->next     = $prevNode->next;
+        //     $prevNode->next = $node;
+
+        //     if ($prevNode === $this->rear) {
+        //         $this->rear = $node;
+        //     }
+        // }
+
+        /* Descent order child comment */
         if (!$parentKey || !isset($this->nodes[$parentKey])) {
             // If is origin comment data or parent comment data doesn`t
             // set before, append the comment data to the list
+
+            if (!isset($this->nodes[$parentKey])) {
+                $this->nodes[$parentKey] = $this->head;
+            }
 
             if (!$this->head->next) {
                 $this->head->next = $this->rear = $node;
@@ -90,15 +138,7 @@ class CommentDataList implements Iterator
             $originKey = $node->originKey;
             $level     = $node->level;
 
-            $prevNode = $this->nodes[$parentKey];
-            while (
-                $prevNode !== $this->rear
-                && $originKey === $prevNode->next->originKey
-                && (!$prevNode->isChild || $level <= $prevNode->level)
-            ) {
-                $prevNode = $prevNode->next;
-            }
-
+            $prevNode       = $this->nodes[$parentKey];
             $node->next     = $prevNode->next;
             $prevNode->next = $node;
 
@@ -126,9 +166,9 @@ class CommentDataList implements Iterator
                 'Comment data with key: %d doesn`t exist', $key));
         }
 
-        $offset = 0;
+        $offset = -1;
         $node   = $this->head->next;
-        while ($node && $node->key !== $key) {
+        while ($node && $node->key != $key) {
             $node = $node->next;
             $offset++;
         }
@@ -153,8 +193,8 @@ class CommentDataList implements Iterator
         $node = $this->nodes[$key];
         if ($node->next) {
             return array(
-                'key'      => $node->next->key,
-                'is_child' => $node->next->isChild,
+                'search_key' => $node->next->key,
+                'origin_key' => $node->next->originKey,
             );
         } else {
             return null;

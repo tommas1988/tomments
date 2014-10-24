@@ -56,45 +56,6 @@ interface CommentInterface
     public function getParentKey();
 
     /**
-     * Set the origin comment key
-     *
-     * The offset of origin comment is 0.
-     *
-     * @param  int originKey
-     * @return self
-     */
-    public function setOriginKey($originKey);
-
-    /**
-     * Get the origin comment key
-     *
-     * @return int
-     */
-    public function getOriginKey();
-
-    /**
-     * Set the level of the sorted comment rows
-     *
-     * @param  int offset
-     * @return self
-     */
-    public function setLevel($level);
-
-    /**
-     * Get the level of sorted comment rows
-     *
-     * @return int
-     */
-    public function getLevel();
-
-    /**
-     * Get the comment target id
-     *
-     * @return int
-     */
-    public function getTargetId();
-
-    /**
      * Add a child comment
      *
      * @param  CommentInterface comment

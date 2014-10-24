@@ -41,19 +41,30 @@ class CommentManager
     /**
      * Get commmnts
      *
-     * @param  int tartgetId The comment target id
      * @param  int searchKey The key that start searching with
      * @param  int length The number of comments that need to return
-     * @param  bool isChild If the startKey map to a child comment
+     * @param  array|null searchParams Extras search params that need to perform search action
      * @param  int|null originKey The origin comment key of this child comment
-     * @return array
-     * @throws LogicException If cannot get search key when isn`t provided
+     * @return CommentInterface[]
+     * @throws InvalidArgumentException If searchKey is not int
+     * @throws InvalidArgumentException If length is less than 1
      */
     public function getComments(
-        $targetId, $searchKey = null, $length = 10, $originKey = null
+        $searchKey = -1, $length = 20, array $searchParams = null
     ) {
-        return $this->commentMapper->findComments(
-            $targetId, $searchKey, $length, $originKey);
+        if (!is_int($searchKey)) {
+            throw new InvalidArgumentException(sprintf(
+                'Invalid search key: %s', gettype($searchKey)));
+        }
+        if (!is_int($length) || $length < 1) {
+            throw new InvalidArgumentException('Length must be greater than 0');
+        }
+
+        if ($searchParams) {
+            $this->commentMapper->setSearchParams($searchParams);
+        }
+
+        return $this->commentMapper->findComments($searchKey, $length);
     }
 
     /**
@@ -70,20 +81,18 @@ class CommentManager
      *
      * @param  array params The comment params
      * @param  int|null parentKey The parent comment key
-     * @param  int|null originKey The origin comment key
      * @return bool
      */
-    public function addComment(
-        array $params, $parentKey = null, $originKey = null
-    ) {
+    public function addComment(array $params, $parentKey = null)
+    {
         $comment = clone $this->commentPrototype;
 
-        if (null !== $parentKey && null !== $originKey) {
+        if (null !== $parentKey) {
             $comment->setParentKey($parentKey)
-                ->setOriginKey($originKey)
                 ->markChildFlag();
         }
 
+        // load comment data
         $comment->load($params);
 
         return $this->commentMapper->insert($comment);
@@ -115,19 +124,22 @@ class CommentManager
      * Delete a comment
      *
      * @param  int key The comment key
-     * @param  int|null originKey The origin comment key
+     * @param  array|null params Comment params
+     * @param  bool isChild If the comment is a child
      * @return bool
      */
-    public function deleteComment($key, $originKey = null)
+    public function deleteComment($key, array $params = null, $isChild = false)
     {
         $comment = clone $this->commentPrototype;
+        $comment->setKey($key);
 
-        if (null !== $originKey) {
-            $comment->setOriginKey($originKey)
-                ->markChildFlag();
+        if ($params) {
+            $comment->load($params);
         }
 
-        $comment->setKey($key);
+        if ($isChild) {
+            $comment->markChildFlag();
+        }
 
         return $this->commentMapper->delete($comment);
     }
