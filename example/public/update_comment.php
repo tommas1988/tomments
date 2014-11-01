@@ -16,9 +16,17 @@ $params['content'] = $_POST['content'];
 
 $isChild = isset($_POST['is_child']) ? true : false;
 $params['time'] = date('Y-m-d H:s:i');
+
+// start profile
+TUtils\Profiler::getInstance()->start('update_comment');
+
 if ($commentManager->updateComment($key, $params, $isChild)) {
     echo 1;
 } else {
     echo '{"error" : "can not update the comment"}';
 }
+
+// stop profile
+TUtils\Profiler::getInstance()->stop();
+
 exit;

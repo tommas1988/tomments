@@ -249,7 +249,7 @@ abstract class AbstractCommentMapper implements
     }
 
     /**
-     * Increment or decrement child_count column for origin comment
+     * Update child_count column for origin comment
      * Handy for test.
      *
      * @param  bool addition Increase or decrease the child count

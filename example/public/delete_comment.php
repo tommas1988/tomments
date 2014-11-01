@@ -25,9 +25,16 @@ if (isset($_POST['is_child'])) {
     $isChild = true;
 }
 
+// start profile
+TUtils\Profiler::getInstance()->start('delete_comment');
+
 if ($commentManager->deleteComment($key, $params, $isChild)) {
     echo 1;
 } else {
     echo '{"error" : "can not delete the comment"}';
 }
+
+// stop profile
+TUtils\Profiler::getInstance()->stop();
+
 exit;

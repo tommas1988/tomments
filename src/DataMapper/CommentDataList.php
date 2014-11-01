@@ -166,7 +166,7 @@ class CommentDataList implements Iterator
                 'Comment data with key: %d doesn`t exist', $key));
         }
 
-        $offset = -1;
+        $offset = 0;
         $node   = $this->head->next;
         while ($node && $node->key != $key) {
             $node = $node->next;

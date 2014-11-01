@@ -29,9 +29,17 @@ if (isset($_POST['level'])) {
 $parentKey = isset($_POST['parent_key']) ? (int) $_POST['parent_key'] : null;
 
 $params['time'] = date('Y-m-d H:s:i');
+
+// start profiler
+TUtils\Profiler::getInstance()->start('add_comment');
+
 if ($commentManager->addComment($params, $parentKey)) {
     echo 1;
 } else {
     echo '{"error" : "can not add the comment"}';
 }
+
+// stop profle
+TUtils\Profiler::getInstance()->stop();
+
 exit;

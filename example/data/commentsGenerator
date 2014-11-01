@@ -1,0 +1,143 @@
+#!/usr/bin/php
+<?php
+// shift off the file name
+array_shift($argv);
+
+$requiredArgs = array(
+    'host',
+    'port',
+    'dbuser',
+    'dbpass',
+    'dbname',
+    'tableName',
+    'createNum',
+);
+foreach ($argv as $arg) {
+    $pairs = explode('=', $arg, 2);
+    if (count($pairs) != 2 || !in_array($pairs[0], $requiredArgs, true)) {
+        echo "Invalid arg: $arg\n";
+        exit(1);
+    }
+
+    ${$pairs[0]} = $pairs[1];
+}
+
+if (!isset($dbuser, $dbpass, $dbname, $createNum)) {
+    echo "Missing required args\n";
+    exit(1);
+}
+
+$tableName = isset($tableName) ? $tableName : 'comments';
+$host      = isset($host) ? $host : 'localhost';
+
+$dsn = "mysql:host=$host;";
+if (isset($port)) {
+    $dsn .= "port:$port;";
+}
+$dsn .= "dbname=$dbname";
+
+try {
+    $pdo = new PDO($dsn, $dbname, $dbpass);
+} catch (Exception $e) {
+    echo $e;
+    echo "Can not connect to db server\n";
+    exit(1);
+}
+
+$sql = "SELECT `id`, `level`, `parent_id`, `origin_id` FROM $tableName WHERE state = 1";
+
+// Get exist comments
+$comments = array();
+foreach ($pdo->query($sql) as $row) {
+    $comments[] = array(
+        'id'          => (int) $row['id'],
+        'level'       => (int) $row['level'],
+        'parent_id'   => (int) $row['parent_id'],
+        'origin_id'   => (int) $row['origin_id'],
+    );
+}
+
+// Get next insert key
+$sql = "SHOW TABLE STATUS LIKE '$tableName'";
+foreach ($pdo->query($sql) as $row) {
+    $nextKey = $row['Auto_increment'];
+}
+
+// Get origin comment number
+$originNum = 0;
+$sql = "SELECT count(id) FROM $tableName WHERE level = 0";
+foreach ($pdo->query($sql) as $row) {
+    $originNum = $row[0];
+}
+
+require '../lib/Zend/Loader/AutoloaderFactory.php';
+Zend\Loader\AutoloaderFactory::factory(array(
+    'Zend\Loader\StandardAutoloader' => array(
+        'namespaces' => array(
+            'Zend' => __DIR__ . '/../lib/Zend',
+))));
+// init process bar
+$processBar = new Zend\ProgressBar\ProgressBar(new Zend\ProgressBar\Adapter\Console(), 0, $createNum);
+
+$curCount = 0;
+while ($createNum > 0) {
+    if (mt_rand(1, 2) == 1 && !empty($comments)) {
+        $comment = $comments[array_rand($comments)];
+        if (0 == $comment['level']) {
+            $level     = 1;
+            $parentKey = $comment['id'];
+            $originKey = $comment['id'];
+        } else {
+            $level     = $comment['level'] + 1;
+            $parentKey = $comment['id'];
+            $originKey = $comment['origin_id'];
+        }
+        $content = "KEY: $nextKey, LEVEL: $level, PARENT_KEY: $parentKey, ORIGIN_KEY: $originKey<br />TEST COMMENT";
+        $time    = date('Y-m-d H:s:i');
+
+        $pdo->beginTransaction();
+
+        $insertSql = "INSERT INTO $tableName (`level`, `parent_id`, `origin_id`, `content`, `time`, `target_id`)"
+            . " VALUES ($level, $parentKey, $originKey, '$content', '$time', 1)";
+        if (false === $pdo->exec($insertSql)) {
+            $pdo->rollBack();
+            echo "Can not execute sql $insertSql\n";
+            exit(0);
+        }
+
+        $updateSql = "UPDATE $tableName SET child_count = child_count + 1 WHERE id = $originKey";
+        if (false === ($pdo->exec($updateSql))) {
+            $pdo->rollBack();
+            echo "Can not execute sql $updateSql\n";
+            exit(0);
+        }
+
+        $pdo->commit();
+    } else {
+        $level     = 0;
+        $parentKey = 0;
+        $originKey = 0;
+        $content   = "KEY: $nextKey<br />TEST COMMENT";
+        $time      = date('Y-m-d H:s:i');
+
+        $insertSql = "INSERT INTO $tableName (`child_count`, `content`, `time`, `target_id`) VALUES (0, '$content', '$time', 1)";
+        if (false === ($pdo->exec($insertSql))) {
+            echo "Can not execute sql $insertSql\n";
+            exit(0);
+        }
+    }
+
+    $comments[] = array(
+        'id'        => $nextKey++,
+        'level'     => $level,
+        'parent_id' => $parentKey,
+        'origin_id' => $originKey,
+    );
+
+    $createNum--;
+    $processBar->update(++$curCount);
+}
+
+$processBar->finish();
+
+exit(0);

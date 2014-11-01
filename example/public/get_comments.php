@@ -6,8 +6,14 @@ $searchKey    = (int) $_GET['search_key'];
 $length       = (int) $_GET['length'];
 $searchParams = $_GET['search_params'];
 
+// start profile
+TUtils\Profiler::getInstance()->start('get_comments');
+
 $comments = $commentManager->getComments($searchKey, $length, $searchParams);
 $nextKey  = $commentManager->getNextSearchKey();
+
+// stop profile
+TUtils\Profiler::getInstance()->stop();
 
 $result['comments'] = array();
 foreach ($comments as $comment) {
