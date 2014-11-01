@@ -44,9 +44,9 @@ try {
     exit(1);
 }
 
-$sql = "SELECT `id`, `level`, `parent_id`, `origin_id` FROM $tableName WHERE state = 1";
 
 // Get exist comments
+$sql      = "SELECT `id`, `level`, `parent_id`, `origin_id` FROM $tableName WHERE state = 1";
 $comments = array();
 foreach ($pdo->query($sql) as $row) {
     $comments[] = array(
@@ -61,13 +61,6 @@ foreach ($pdo->query($sql) as $row) {
 $sql = "SHOW TABLE STATUS LIKE '$tableName'";
 foreach ($pdo->query($sql) as $row) {
     $nextKey = $row['Auto_increment'];
-}
-
-// Get origin comment number
-$originNum = 0;
-$sql = "SELECT count(id) FROM $tableName WHERE level = 0";
-foreach ($pdo->query($sql) as $row) {
-    $originNum = $row[0];
 }
 
 require '../lib/Zend/Loader/AutoloaderFactory.php';
