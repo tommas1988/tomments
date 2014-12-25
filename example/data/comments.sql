@@ -8,5 +8,7 @@ CREATE TABLE `comments` (
         `target_id` INT UNSIGNED NOT NULL,
         `content` TEXT NOT NULL,
         `time` TIMESTAMP NOT NULL DEFAULT 0,
-        `state` TINYINT UNSIGNED DEFAULT 1
+        `state` TINYINT UNSIGNED DEFAULT 1,
+        KEY (`level`, `target_id`),
+        KEY (`origin_id`)
 ) ENGINE InnoDB CHARACTER SET UTF8;
