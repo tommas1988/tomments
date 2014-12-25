@@ -4,20 +4,24 @@ use Tomments\DataMapper\AbstractCommentMapper;
 class CommentMapper extends AbstractCommentMapper
 {
     /**
-     * Customize defined fields columns mapper
+     * Custom column infos
      * @var array
      */
-    protected $columnMapper = array(
-        'content' => 'content',
-        'time'    => 'time',
+    protected $cusColInfos = array(
+        'content' => array(
+            'field'      => 'content',
+            'quote-type' => \PDO::PARAM_STR,
+        ),
+        'time' => array(
+            'field'      => 'time',
+            'quote-type' => \PDO::PARAM_STR,
+        ),
     );
 
     /**
-     * Updatable fields columns mapper
+     * Updatable columns
      * @var array
      */
-    protected $updatableColumnMapper = array(
-        'content' => 'content',
-        'time'    => 'time',
-    );
+    protected $updatableColumns = array(
+        'content', 'time');
 }
