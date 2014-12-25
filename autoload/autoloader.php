@@ -1,14 +1,10 @@
 <?php
-spl_autoload_register(function($class) {
-    $parts = explode('\\', $class);
-
-    if ('Tomments' !== $parts[0]) {
-        return;
-    }
-
-    array_shift($parts);
-    $path = __DIR__ . '/../src/' . implode('/', $parts) . '.php';
-    if (file_exists($path)) {
-        require $path;
-    }
-});
+require __DIR__ . '/../vendors/Zend/Loader/AutoloaderFactory.php';
+Zend\Loader\AutoloaderFactory::factory(array(
+    'Zend\Loader\StandardAutoloader' => array(
+        'namespaces' => array(
+            'Tomments'      => __DIR__ . '/../src/',
+            'Tomments\Test' => __DIR__ . '/../test',
+            'TUtils'        => __DIR__ . '/../vendors/TUtils',
+            'Zend'          => __DIR__ . '/../vendors/Zend',
+))));

@@ -9,7 +9,6 @@ $requiredArgs = array(
     'dbuser',
     'dbpass',
     'dbname',
-    'tableName',
     'createNum',
 );
 foreach ($argv as $arg) {
@@ -27,7 +26,7 @@ if (!isset($dbuser, $dbpass, $dbname, $createNum)) {
     exit(1);
 }
 
-$tableName = isset($tableName) ? $tableName : 'comments';
+$tableName = 'comments';
 $host      = isset($host) ? $host : 'localhost';
 
 $dsn = "mysql:host=$host;";
@@ -43,7 +42,6 @@ try {
     echo "Can not connect to db server\n";
     exit(1);
 }
-
 
 // Get exist comments
 $sql      = "SELECT `id`, `level`, `parent_id`, `origin_id` FROM $tableName WHERE state = 1";
@@ -63,12 +61,6 @@ foreach ($pdo->query($sql) as $row) {
     $nextKey = $row['Auto_increment'];
 }
 
-require '../lib/Zend/Loader/AutoloaderFactory.php';
-Zend\Loader\AutoloaderFactory::factory(array(
-    'Zend\Loader\StandardAutoloader' => array(
-        'namespaces' => array(
-            'Zend' => __DIR__ . '/../lib/Zend',
-))));
 // init process bar
 $processBar = new Zend\ProgressBar\ProgressBar(new Zend\ProgressBar\Adapter\Console(), 0, $createNum);
 

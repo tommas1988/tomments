@@ -1,15 +1,14 @@
 <?php
-define('LIB_PATH', __DIR__ . '/../');
+define('APP_PATH', __DIR__ . '/');
 
-require LIB_PATH . 'autoload/autoloader.php';
-require LIB_PATH . 'example/tomments/Comment.php';
-require LIB_PATH . 'example/tomments/CommentMapper.php';
-require LIB_PATH . 'example/lib/TUtils/Profiler.php';
+$config = include APP_PATH . 'config/config.php';
+
+require APP_PATH . 'tomments/Comment.php';
+require APP_PATH . 'tomments/CommentMapper.php';
 
 TUtils\Profiler::setOptions(array(
-    'xhprof_path' => LIB_PATH . 'example/lib/xhprof',
+    'xhprof_path' => LIB_PATH . 'vendors/xhprof',
     'rand_prof'   => true,
 ));
 
-$config = include LIB_PATH . 'example/config/config.php';
 $commentManager = new \Tomments\CommentManager($config);

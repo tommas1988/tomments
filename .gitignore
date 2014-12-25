@@ -1,2 +1,2 @@
 # ignore example`s db configuration
-example/config/db_config.php
+example/config/local.php

@@ -253,7 +253,7 @@ abstract class AbstractCommentMapper implements
      * Handy for test.
      *
      * @param  bool addition Increase or decrease the child count
-     * @param  int amount The amount to increase or decrease 
+     * @param  int amount The amount to increase or decrease
      * @return string
      */
     public function updateChildCountStatement($addition = true, $amount = 1)
@@ -488,7 +488,7 @@ abstract class AbstractCommentMapper implements
             }
 
             $count++;
-            $stmt->bindValue($count, $targetId, PDO::PARAM_INT);            
+            $stmt->bindValue($count, $targetId, PDO::PARAM_INT);
         }
 
         foreach ($this->columnMapper as $field => $column) {
@@ -540,7 +540,7 @@ abstract class AbstractCommentMapper implements
         $stmt = $this->db->prepare(
             $this->updateCommentStatement(array_keys($updateColumns)));
 
-        $count = 1;        
+        $count = 1;
         foreach ($updateColumns as $value) {
             $stmt->bindValue($count++, $value);
         }
@@ -609,7 +609,7 @@ abstract class AbstractCommentMapper implements
                     return false;
                 }
             }
-            
+
             // Update child comment count
             $stmt = $this->db->prepare($this->updateChildCountStatement(false, $amount));
             $stmt->bindValue(1, $originKey, PDO::PARAM_INT);
