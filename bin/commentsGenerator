@@ -36,7 +36,7 @@ if (isset($port)) {
 $dsn .= "dbname=$dbname";
 
 try {
-    $pdo = new PDO($dsn, $dbname, $dbpass);
+    $pdo = new PDO($dsn, $dbuser, $dbpass);
 } catch (Exception $e) {
     echo $e;
     echo "Can not connect to db server\n";
@@ -58,16 +58,25 @@ foreach ($pdo->query($sql) as $row) {
 // Get next insert key
 $sql = "SHOW TABLE STATUS LIKE '$tableName'";
 foreach ($pdo->query($sql) as $row) {
-    $nextKey = $row['Auto_increment'];
+    $curKey = $row['Auto_increment'];
 }
 
+require __DIR__ . '/../autoload/autoloader.php';
 // init process bar
 $processBar = new Zend\ProgressBar\ProgressBar(new Zend\ProgressBar\Adapter\Console(), 0, $createNum);
 
 $curCount = 0;
 while ($createNum > 0) {
     if (mt_rand(1, 2) == 1 && !empty($comments)) {
-        $comment = $comments[array_rand($comments)];
+        $ra = $curKey;
+        $rb = $curKey > 5 ? $curKey - 5 : 5;
+        $randKey = mt_rand($rb, $ra);
+        if (isset($comments[$randKey])) {
+            $comment = $comments[$randKey];
+        } else {
+            $comment = $comments[array_rand($comments)];
+        }
+
         if (0 == $comment['level']) {
             $level     = 1;
             $parentKey = $comment['id'];
@@ -77,7 +86,7 @@ while ($createNum > 0) {
             $parentKey = $comment['id'];
             $originKey = $comment['origin_id'];
         }
-        $content = "KEY: $nextKey, LEVEL: $level, PARENT_KEY: $parentKey, ORIGIN_KEY: $originKey<br />TEST COMMENT";
+        $content = "KEY: $curKey, LEVEL: $level, PARENT_KEY: $parentKey, ORIGIN_KEY: $originKey<br />TEST COMMENT";
         $time    = date('Y-m-d H:s:i');
 
         $pdo->beginTransaction();
@@ -102,7 +111,7 @@ while ($createNum > 0) {
         $level     = 0;
         $parentKey = 0;
         $originKey = 0;
-        $content   = "KEY: $nextKey<br />TEST COMMENT";
+        $content   = "KEY: $curKey<br />TEST COMMENT";
         $time      = date('Y-m-d H:s:i');
 
         $insertSql = "INSERT INTO $tableName (`child_count`, `content`, `time`, `target_id`) VALUES (0, '$content', '$time', 1)";
@@ -113,7 +122,7 @@ while ($createNum > 0) {
     }
 
     $comments[] = array(
-        'id'        => $nextKey++,
+        'id'        => $curKey++,
         'level'     => $level,
         'parent_id' => $parentKey,
         'origin_id' => $originKey,
